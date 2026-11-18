@@ -12,6 +12,7 @@ interface Props {
   activePlaylistId: string | null;
   onOpenPlaylist: (id: string) => void;
   onCreatePlaylist: (name: string) => void;
+  onImport: () => void;
   likedCount: number;
   likedOpen: boolean;
   onOpenLiked: () => void;
@@ -35,6 +36,7 @@ export function Sidebar({
   activePlaylistId,
   onOpenPlaylist,
   onCreatePlaylist,
+  onImport,
   likedCount,
   likedOpen,
   onOpenLiked,
@@ -143,6 +145,10 @@ export function Sidebar({
               />
             </form>
           ) : null}
+          <button className="nav-item side-import" onClick={onImport} title="Import a Spotify playlist or a CSV file">
+            <span className="nav-cursor"> </span>
+            <span className="nav-label ellipsis">⇣ import playlist</span>
+          </button>
         </div>
       </div>
       <div className="sidebar-spacer" />

@@ -82,6 +82,36 @@ export interface StreamInfo {
   hls: boolean;
 }
 
+/** A song made ready to play through the local audio proxy. */
+export interface PreparedStream {
+  url: string;
+  hls: boolean;
+  /** YouTube loudness in dB above its reference level; null if unknown. */
+  loudness_db: number | null;
+  /** Already in the offline cache. */
+  cached: boolean;
+}
+
+export interface CacheInfo {
+  bytes: number;
+  songs: number;
+  limit_bytes: number;
+}
+
+/** A track from Spotify (or a CSV export) before matching. */
+export interface SourceTrack {
+  title: string;
+  artists: string[];
+  duration_ms: number | null;
+}
+
+export interface ImportResult {
+  name: string;
+  items: Item[];
+  missing: string[];
+  truncated: boolean;
+}
+
 export interface BackendStatus {
   ytdlp_available: boolean;
   path: string | null;

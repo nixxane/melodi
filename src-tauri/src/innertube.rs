@@ -149,6 +149,47 @@ impl InnerTube {
         Ok(serde_json::from_str(&text)?)
     }
 
+    /// YouTube's loudness for a song: how many dB it is above YouTube's
+    /// reference level of -14 LUFS (YouTube turns loud songs down by this
+    /// much). The music client doesn't return it without a login, and the
+    /// mobile clients sometimes hit a bot check, so a few are tried in turn.
+    pub async fn loudness(&self, video_id: &str) -> Result<Option<f32>, Error> {
+        const CLIENTS: &[(&str, &str, Option<u32>)] = &[
+            ("ANDROID", "20.10.38", Some(30)),
+            ("IOS", "20.10.4", None),
+            ("ANDROID_VR", "1.60.19", None),
+        ];
+        for (name, version, sdk) in CLIENTS {
+            let mut client = serde_json::json!({
+                "clientName": name,
+                "clientVersion": version,
+                "hl": "en",
+                "gl": "US"
+            });
+            if let Some(sdk) = sdk {
+                client["androidSdkVersion"] = (*sdk).into();
+            }
+            let body = serde_json::json!({ "videoId": video_id, "context": { "client": client } });
+            let Ok(resp) = self
+                .http
+                .post("https://www.youtube.com/youtubei/v1/player?prettyPrint=false")
+                .json(&body)
+                .send()
+                .await
+            else {
+                continue;
+            };
+            if !resp.status().is_success() {
+                continue;
+            }
+            let Ok(v) = resp.json::<Value>().await else { continue };
+            if let Some(l) = v.pointer("/playerConfig/audioConfig").and_then(loudness_of) {
+                return Ok(Some(l));
+            }
+        }
+        Ok(None)
+    }
+
     /// Search results, ordered as: top result, then songs (from the "Songs"
     /// filter, which carries album + duration), then albums/artists/playlists.
     pub async fn search(&self, query: &str) -> Result<Vec<Item>, Error> {
@@ -168,6 +209,16 @@ impl InnerTube {
         out.extend(songs.into_iter().filter(|s| s.video_id.is_some() && s.video_id != top_id));
         out.extend(general.into_iter().skip(1).filter(|i| i.kind != "song"));
         Ok(out)
+    }
+
+    /// Results from the "Songs" filter only (title, artists, duration).
+    pub async fn search_songs(&self, query: &str) -> Result<Vec<Item>, Error> {
+        Ok(self
+            .search_raw(query, Some(SONGS_FILTER))
+            .await?
+            .into_iter()
+            .filter(|i| i.video_id.is_some())
+            .collect())
     }
 
     async fn search_raw(&self, query: &str, params: Option<&str>) -> Result<Vec<Item>, Error> {
@@ -306,6 +357,16 @@ impl InnerTube {
 
 /// Parse `playlistPanelVideoRenderer` entries from a `next` response, skipping
 /// the seed track itself.
+/// dB above the -14 LUFS reference, from whichever fields the client sent.
+fn loudness_of(cfg: &Value) -> Option<f32> {
+    let f = |k: &str| cfg.get(k).and_then(Value::as_f64);
+    let target = f("loudnessTargetLkfs").unwrap_or(-14.0);
+    let l = f("loudnessDb")
+        .or_else(|| f("trackAbsoluteLoudnessLkfs").map(|a| a - target))
+        .or_else(|| f("perceptualLoudnessDb").map(|a| a - target))?;
+    (l.is_finite() && l.abs() < 60.0).then_some(l as f32)
+}
+
 fn parse_up_next(v: &Value, seed_id: Option<&str>) -> Vec<Item> {
     let contents = v
         .pointer("/contents/singleColumnMusicWatchNextResultsRenderer/tabbedRenderer/watchNextTabbedResultsRenderer/tabs/0/tabRenderer/content/musicQueueRenderer/content/playlistPanelRenderer/contents")
@@ -755,6 +816,22 @@ fn truncate(s: &str, n: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    #[ignore = "requires network access"]
+    async fn loudness_is_found() {
+        let it = InnerTube::new().unwrap();
+        let l = it.loudness("4D7u5KF7SP8").await.unwrap();
+        assert!(l.is_some_and(|l| l > -20.0 && l < 20.0), "{l:?}");
+    }
+
+    #[test]
+    fn loudness_fields() {
+        let v = serde_json::json!({"trackAbsoluteLoudnessLkfs": -10.86, "loudnessTargetLkfs": -14});
+        assert!((loudness_of(&v).unwrap() - 3.14).abs() < 0.01);
+        assert_eq!(loudness_of(&serde_json::json!({"loudnessDb": 2.5})), Some(2.5));
+        assert_eq!(loudness_of(&serde_json::json!({})), None);
+    }
 
     #[tokio::test]
     #[ignore = "requires network access"]

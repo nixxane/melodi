@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
-import { backendStatus, browseHome } from "./api";
+import { backendStatus, browseHome, setAudioCache } from "./api";
 import { Sidebar } from "./components/Sidebar";
 import { PlayerBar } from "./components/PlayerBar";
 import { HomeView } from "./components/HomeView";
@@ -14,6 +14,8 @@ import { CollectionView } from "./components/CollectionView";
 import { LyricsView } from "./components/LyricsView";
 import { PlaylistView } from "./components/PlaylistView";
 import { PlaylistPicker } from "./components/PlaylistPicker";
+import { ImportDialog } from "./components/ImportDialog";
+import { isSpotifyLink } from "./lib/importFile";
 import { usePlaylists } from "./lib/usePlaylists";
 import { useLikes } from "./lib/useLikes";
 import { SettingsContext, useSettingsState } from "./lib/useSettings";
@@ -74,6 +76,8 @@ export default function App() {
   );
   /** Songs waiting for the "add to playlist" picker (null = closed). */
   const [picking, setPicking] = useState<Item[] | null>(null);
+  /** Import dialog (null = closed), optionally starting from a pasted link. */
+  const [importing, setImporting] = useState<{ link?: string } | null>(null);
 
   // Player <-> queue wiring: the player's callbacks are provided by the queue.
   const handlersRef = useRef<PlayerCallbacks>({});
@@ -247,6 +251,20 @@ export default function App() {
   });
   const updater = useUpdater(settings.checkUpdates);
 
+  // Audio processing: crossfade is skipped on repeat-one (it would cut the
+  // song's ending only to start the same song again).
+  const setAudioOptions = player.setAudioOptions;
+  useEffect(() => {
+    setAudioOptions({
+      crossfade: queue.repeat === "one" ? 0 : settings.crossfade,
+      normalize: settings.normalize,
+      eq: settings.eq,
+    });
+  }, [setAudioOptions, queue.repeat, settings.crossfade, settings.normalize, settings.eq]);
+  useEffect(() => {
+    setAudioCache(settings.cacheMb);
+  }, [settings.cacheMb]);
+
   // ---- actions ---------------------------------------------------------------
 
   const actions: Actions = useMemo(
@@ -365,6 +383,7 @@ export default function App() {
           activePlaylistId={route.name === "playlist" ? route.id : null}
           onOpenPlaylist={(id) => go({ name: "playlist", id })}
           onCreatePlaylist={(name) => go({ name: "playlist", id: pl.create(name) })}
+          onImport={() => setImporting({})}
           likedCount={likes.likes.length}
           likedOpen={route.name === "liked"}
           onOpenLiked={() => go({ name: "liked" })}
@@ -387,6 +406,12 @@ export default function App() {
                 value={search.query}
                 onChange={(e) => {
                   // A pasted YouTube / YouTube Music link opens or plays right away.
+                  if (isSpotifyLink(e.target.value)) {
+                    search.onQueryChange("");
+                    e.currentTarget.blur();
+                    setImporting({ link: e.target.value.trim() });
+                    return;
+                  }
                   const link = parseYouTubeLink(e.target.value);
                   if (link) {
                     search.onQueryChange("");
@@ -662,6 +687,18 @@ export default function App() {
             onPick={pickPlaylist}
             onCreate={createFromPicker}
             onClose={() => setPicking(null)}
+          />
+        ) : null}
+        {importing ? (
+          <ImportDialog
+            initialLink={importing.link}
+            onClose={() => setImporting(null)}
+            onSave={(name, result) => {
+              const id = pl.create(name, result.items);
+              setImporting(null);
+              go({ name: "playlist", id });
+              push(`Imported ${name} · ${result.items.length} songs`);
+            }}
           />
         ) : null}
 

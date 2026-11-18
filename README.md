@@ -87,6 +87,9 @@ direct stream.
 - 📻 **Radio** — start a radio of similar songs from any track (right-click → start radio, or `≈` in the player)
 - 🎤 **Lyrics** (`L`) — time-synced, auto-scrolling lyrics from [LRCLIB](https://lrclib.net) (click a line to jump there), falling back to YouTube Music's plain lyrics. Lookups send only the track title, artist and length.
 - 🎮 **Discord Rich Presence** — shows "Listening to <artist>" with the song, cover art, progress bar and a YouTube Music button. Talks only to your local Discord client; toggle with `discord:on/off` in the status bar.
+- 🎧 **Sound** — volume normalization (from YouTube's own loudness data), crossfade (2–12 s), and a 7-band equalizer with presets. Audio plays through a small local proxy on `127.0.0.1` so it can be processed; the proxy only answers requests carrying a random per-run key.
+- 📴 **Offline cache** — songs you play (and the next one in the queue) are saved to disk, so replays start instantly and work without internet. Size limit is adjustable (or off) in settings; least recently played songs are removed first.
+- 🟢 **Import from Spotify** — paste a Spotify playlist, album or song link (into search or `⇣ import playlist`) and Melodi finds each song on YouTube Music by title, artist and length, preferring the original over covers, live or sped-up versions. Links show the first 100 songs; for longer playlists import a CSV export (e.g. from exportify.net). No Spotify account needed.
 - 🔗 **Paste a YouTube / YouTube Music link** into search: playlists open (then `+ save` to keep them), song links play with similar songs queued after.
 - 💤 **Sleep timer** (`Z`): 15 / 30 / 45 / 60 min or end of the song, with a gentle fade-out; pauses rather than quitting.
 - 🪟 **Mini player** and **tray icon**: a small always-on-top strip, tray controls (play/pause, next, previous), and an optional "close to tray".
@@ -101,7 +104,7 @@ direct stream.
 - 📻 **Autoplay radio** — when the queue runs out, similar songs are appended automatically (toggle in the queue header)
 - 💾 **Session restore** — the queue and your position come back after a restart (paused)
 - 🎹 **OS media keys** and now-playing card via the Media Session API; the window title follows the track
-- 🚀 **Fast starts** — resolved stream URLs are cached, the next track is prefetched, and expired streams recover automatically
+- 🚀 **Fast starts** — resolved stream URLs are cached, the next track is downloaded ahead of time, and expired streams recover automatically
 - 🖥️ **Terminal-style UI** — amber-phosphor TUI look (JetBrains Mono, boxed panels, ASCII seek/volume bars, vim-style status line), with `1`/`2`/`3` view switching and `j`/`k` list navigation
 - ⚡ **Self-provisioning** — downloads yt-dlp automatically on first run (checksum-verified) if it's missing
 

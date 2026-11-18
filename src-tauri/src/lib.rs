@@ -1,8 +1,10 @@
+mod audio;
 mod commands;
 mod discord;
 mod tray;
 mod innertube;
 mod lyrics;
+mod spotify;
 mod ytdlp;
 
 use innertube::InnerTube;
@@ -31,6 +33,13 @@ pub fn run() {
         .on_window_event(tray::on_window_event)
         .setup(|app| {
             tray::setup(app);
+            // Local audio proxy + offline cache (see audio.rs).
+            match audio::AudioServer::start(app.handle()) {
+                Ok(server) => {
+                    tauri::Manager::manage(app, server);
+                }
+                Err(e) => return Err(format!("couldn't start the audio server: {e}").into()),
+            }
             // Keep the managed yt-dlp fresh: YouTube regularly breaks old versions.
             if let Ok(dir) = tauri::Manager::path(app).app_data_dir() {
                 tauri::async_runtime::spawn(async move {
@@ -45,6 +54,7 @@ pub fn run() {
         .manage(inner)
         .manage(StreamCache::default())
         .manage(lyrics)
+        .manage(spotify::Spotify::new().expect("failed to build Spotify client"))
         .manage(discord::Discord::start())
         .invoke_handler(tauri::generate_handler![
             commands::search,
@@ -61,6 +71,12 @@ pub fn run() {
             commands::discord_available,
             commands::resolve_stream,
             commands::prefetch_stream,
+            commands::prepare_stream,
+            commands::set_audio_cache,
+            commands::audio_cache_info,
+            commands::clear_audio_cache,
+            commands::import_spotify,
+            commands::import_tracks,
             commands::backend_status
         ])
         .run(tauri::generate_context!())

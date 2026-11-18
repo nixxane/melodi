@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { BackendStatus } from "../types";
+import type { BackendStatus, CacheInfo } from "../types";
+import { audioCacheInfo, clearAudioCache } from "../api";
+import { EQ_FREQS, EQ_PRESETS } from "../lib/audioEngine";
 import { LANGUAGES, REGIONS, THEMES, useSettings } from "../lib/useSettings";
 import type { TextSize } from "../lib/useSettings";
 
@@ -25,6 +27,59 @@ interface Props {
 }
 
 const REPO = "https://github.com/nixxane/melodi";
+
+const CROSSFADES = [0, 2, 4, 6, 8, 10, 12];
+const CACHE_SIZES: [number, string][] = [
+  [0, "off"],
+  [512, "512 MB"],
+  [1024, "1 GB"],
+  [2048, "2 GB"],
+  [5120, "5 GB"],
+  [10240, "10 GB"],
+];
+const EQ_MAX = 12;
+const EQ_CELLS = 25;
+
+const fmtBytes = (b: number) =>
+  b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(1)} GB` : `${Math.round(b / 1024 ** 2)} MB`;
+const fmtFreq = (f: number) => (f >= 1000 ? `${f / 1000}k` : `${f}`);
+
+/** One equalizer band: a text slider from -12 to +12 dB, centred on 0. */
+function EqBand({ freq, db, onChange }: { freq: number; db: number; onChange: (db: number) => void }) {
+  const mid = (EQ_CELLS - 1) / 2;
+  const pos = Math.round(mid + (db / EQ_MAX) * mid);
+  const cells = Array.from({ length: EQ_CELLS }, (_, i) =>
+    i === pos ? "●" : (i > mid && i < pos) || (i < mid && i > pos) || (i === mid && pos !== mid) ? "━" : i === mid ? "┼" : "─"
+  );
+  return (
+    <div className="eqz-band">
+      <span className="eqz-freq">{fmtFreq(freq)}Hz</span>
+      <div className="ascii-range">
+        <div className="ascii-bar" aria-hidden="true">
+          {cells.map((c, i) => (
+            <span key={i} className={c === "━" || c === "●" ? "fill" : "rest"}>
+              {c}
+            </span>
+          ))}
+        </div>
+        <input
+          type="range"
+          min={-EQ_MAX}
+          max={EQ_MAX}
+          step={1}
+          value={db}
+          aria-label={`${fmtFreq(freq)} hertz`}
+          onChange={(e) => onChange(Number(e.target.value))}
+          onPointerUp={(e) => e.currentTarget.blur()}
+        />
+      </div>
+      <span className="eqz-db">
+        {db > 0 ? "+" : ""}
+        {db} dB
+      </span>
+    </div>
+  );
+}
 
 function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
@@ -88,6 +143,11 @@ export function SettingsView({
   const { settings, update } = useSettings();
   const [version, setVersion] = useState<string>("");
   const [checking, setChecking] = useState<string | null>(null);
+  const [cache, setCache] = useState<CacheInfo | null>(null);
+  const refreshCache = () => audioCacheInfo().then(setCache).catch(() => setCache(null));
+  useEffect(() => {
+    refreshCache();
+  }, [settings.cacheMb]);
 
   useEffect(() => {
     getVersion().then(setVersion).catch(() => setVersion(""));
@@ -175,6 +235,82 @@ export function SettingsView({
             on={settings.restoreSession}
             onChange={(v) => update({ restoreSession: v })}
             label="restore on startup"
+          />
+        </Row>
+      </section>
+
+      <section className="set-section">
+        <h2 className="view-title">sound</h2>
+        <Row label="normalize volume" hint="play every song at a similar loudness, using youtube's loudness data">
+          <Toggle on={settings.normalize} onChange={(v) => update({ normalize: v })} label="even out loudness" />
+        </Row>
+        <Row label="crossfade" hint="blend the end of each song into the next">
+          {CROSSFADES.map((x) => (
+            <button
+              key={x}
+              className={`kbtn ${settings.crossfade === x ? "on" : ""}`}
+              aria-pressed={settings.crossfade === x}
+              onClick={() => update({ crossfade: x })}
+            >
+              {x === 0 ? "off" : `${x}s`}
+            </button>
+          ))}
+        </Row>
+        <Row label="equalizer" hint="boost or cut bass, mids and treble">
+          <div className="eqz">
+            <div className="eqz-presets">
+              {EQ_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  className={`kbtn ${settings.eqPreset === p.id ? "on" : ""}`}
+                  aria-pressed={settings.eqPreset === p.id}
+                  onClick={() => update({ eqPreset: p.id, eq: p.bands })}
+                >
+                  {p.name}
+                </button>
+              ))}
+              {settings.eqPreset === "custom" ? <span className="kbtn on">custom</span> : null}
+            </div>
+            {EQ_FREQS.map((f, i) => (
+              <EqBand
+                key={f}
+                freq={f}
+                db={settings.eq[i] ?? 0}
+                onChange={(db) => {
+                  const eq = settings.eq.slice();
+                  eq[i] = db;
+                  const match = EQ_PRESETS.find((p) => p.bands.every((b, j) => b === eq[j]));
+                  update({ eq, eqPreset: match?.id ?? "custom" });
+                }}
+              />
+            ))}
+          </div>
+        </Row>
+        <Row
+          label="offline cache"
+          hint={
+            cache
+              ? `songs you play are saved for instant, offline replay · ${fmtBytes(cache.bytes)} used, ${cache.songs} songs`
+              : "songs you play are saved for instant, offline replay"
+          }
+        >
+          <select
+            className="set-select"
+            value={settings.cacheMb}
+            onChange={(e) => update({ cacheMb: Number(e.target.value) })}
+          >
+            {CACHE_SIZES.map(([mb, label]) => (
+              <option key={mb} value={mb}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <ConfirmButton
+            label="clear"
+            disabled={!cache?.songs}
+            onConfirm={() => {
+              clearAudioCache().finally(refreshCache);
+            }}
           />
         </Row>
       </section>

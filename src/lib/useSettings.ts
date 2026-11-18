@@ -19,6 +19,16 @@ export interface Settings {
   /** YouTube Music interface language (hl) and content region (gl). */
   language: string;
   region: string;
+  /** Even out loudness between songs (YouTube's loudness data). */
+  normalize: boolean;
+  /** Seconds the end of a song overlaps the next; 0 = off. */
+  crossfade: number;
+  /** Equalizer preset id, or "custom". */
+  eqPreset: string;
+  /** Equalizer gains in dB, one per band in EQ_FREQS. */
+  eq: number[];
+  /** Offline song cache limit in MB; 0 = off. */
+  cacheMb: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -30,6 +40,11 @@ export const DEFAULT_SETTINGS: Settings = {
   closeToTray: false,
   language: "en",
   region: "US",
+  normalize: true,
+  crossfade: 0,
+  eqPreset: "flat",
+  eq: [0, 0, 0, 0, 0, 0, 0],
+  cacheMb: 1024,
 };
 
 export const THEMES: { id: ThemeId; name: string; note: string; swatch: string[] }[] = [
@@ -65,6 +80,7 @@ export function readSettings(): Settings {
   const raw = loadJSON<Partial<Settings> | null>(SETTINGS_KEY, null) ?? {};
   const s = { ...DEFAULT_SETTINGS, ...raw };
   if (!THEME_IDS.has(s.theme)) s.theme = DEFAULT_SETTINGS.theme;
+  if (!Array.isArray(s.eq) || s.eq.length !== DEFAULT_SETTINGS.eq.length) s.eq = DEFAULT_SETTINGS.eq;
   return s;
 }
 

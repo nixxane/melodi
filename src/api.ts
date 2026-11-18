@@ -1,5 +1,17 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Artist, BackendStatus, Collection, Item, Lyrics, Shelf, StreamInfo } from "./types";
+import type {
+  Artist,
+  BackendStatus,
+  CacheInfo,
+  Collection,
+  ImportResult,
+  Item,
+  Lyrics,
+  PreparedStream,
+  Shelf,
+  SourceTrack,
+  StreamInfo,
+} from "./types";
 
 export const search = (query: string) => invoke<Item[]>("search", { query });
 
@@ -31,3 +43,16 @@ export const prefetchStream = (videoId: string) => {
 };
 
 export const backendStatus = () => invoke<BackendStatus>("backend_status");
+
+/** Resolve a song and get its local proxy URL + loudness. */
+export const prepareStream = (videoId: string, forceRefresh = false) =>
+  invoke<PreparedStream>("prepare_stream", { videoId, forceRefresh });
+
+/** Offline cache size limit in MB (0 = off). */
+export const setAudioCache = (limitMb: number) => invoke("set_audio_cache", { limitMb }).catch(() => {});
+export const audioCacheInfo = () => invoke<CacheInfo>("audio_cache_info");
+export const clearAudioCache = () => invoke("clear_audio_cache");
+
+export const importSpotify = (url: string) => invoke<ImportResult>("import_spotify", { url });
+export const importTracks = (name: string, tracks: SourceTrack[]) =>
+  invoke<ImportResult>("import_tracks", { name, tracks });

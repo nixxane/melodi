@@ -2,6 +2,8 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::innertube::{Artist, Collection, InnerTube, Item, Shelf};
 use crate::lyrics::{Lyrics, LyricsClient};
+use crate::audio::{AudioServer, CacheInfo, Prepared};
+use crate::spotify::{self, Imported, SourceList, Spotify, Track};
 use crate::ytdlp::{self, StreamCache};
 
 #[tauri::command]
@@ -75,14 +77,9 @@ pub async fn resolve_stream(
 
 /// Fire-and-forget: warm the stream cache. Errors are swallowed.
 #[tauri::command]
-pub async fn prefetch_stream(
-    app: AppHandle,
-    cache: State<'_, StreamCache>,
-    video_id: String,
-) -> Result<(), String> {
-    if let Ok(dir) = app.path().app_data_dir() {
-        let _ = ytdlp::resolve_stream(&dir, &cache, &video_id, false).await;
-    }
+pub async fn prefetch_stream(audio: State<'_, AudioServer>, video_id: String) -> Result<(), String> {
+    // Resolves the URL and downloads the song into the offline cache.
+    audio.prefetch(&video_id).await;
     Ok(())
 }
 
@@ -109,4 +106,63 @@ pub fn discord_presence(
 #[tauri::command]
 pub fn discord_available(discord: State<'_, crate::discord::Discord>) -> bool {
     discord.enabled()
+}
+
+// ---- audio proxy / cache ---------------------------------------------------
+
+/// Resolve a song and return the local proxy URL plus its loudness.
+#[tauri::command]
+pub async fn prepare_stream(
+    audio: State<'_, AudioServer>,
+    video_id: String,
+    force_refresh: Option<bool>,
+) -> Result<Prepared, String> {
+    audio
+        .prepare(&video_id, force_refresh.unwrap_or(false))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Size limit for the offline song cache; 0 turns caching off.
+#[tauri::command]
+pub fn set_audio_cache(audio: State<'_, AudioServer>, limit_mb: u64) {
+    audio.set_limit_mb(limit_mb);
+}
+
+#[tauri::command]
+pub async fn audio_cache_info(audio: State<'_, AudioServer>) -> Result<CacheInfo, String> {
+    Ok(audio.info())
+}
+
+#[tauri::command]
+pub async fn clear_audio_cache(audio: State<'_, AudioServer>) -> Result<(), String> {
+    audio.clear();
+    Ok(())
+}
+
+// ---- Spotify import ----------------------------------------------------------
+
+/// Import a Spotify playlist / album / track link, matched to YouTube Music.
+#[tauri::command]
+pub async fn import_spotify(
+    app: AppHandle,
+    spotify: State<'_, Spotify>,
+    url: String,
+) -> Result<Imported, String> {
+    let (kind, id) = spotify::parse_link(&url).ok_or("That doesn't look like a Spotify playlist, album or song link")?;
+    let list = spotify::fetch(&spotify.http, kind, &id).await.map_err(|e| e.to_string())?;
+    if list.tracks.is_empty() {
+        return Err("That Spotify playlist is empty".into());
+    }
+    Ok(spotify::match_all(&app, list).await)
+}
+
+/// Match a track list read from a file (e.g. a CSV export) to YouTube Music.
+#[tauri::command]
+pub async fn import_tracks(app: AppHandle, name: String, tracks: Vec<Track>) -> Result<Imported, String> {
+    if tracks.is_empty() {
+        return Err("No songs found in that file".into());
+    }
+    let tracks: Vec<Track> = tracks.into_iter().take(5000).collect();
+    Ok(spotify::match_all(&app, SourceList { name, tracks, truncated: false }).await)
 }
