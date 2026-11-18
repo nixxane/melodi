@@ -1497,6 +1497,28 @@ kbd {
   }
 }
 
+/* Narrow windows: stack volume over the tool buttons so nothing overlaps. */
+@media (max-width: 1280px) {
+  .playerbar {
+    grid-template-columns: minmax(150px, 1fr) minmax(260px, 1.4fr) auto;
+    gap: 14px;
+  }
+  .player-right {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  .player-tools {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 300px;
+  }
+}
+.transport {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
