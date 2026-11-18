@@ -35,6 +35,8 @@ export interface PlayerApi {
   getCurrentTime: () => number;
   setVolume: (v: number) => void;
   toggleMute: () => void;
+  /** Temporary volume multiplier (0..1) for fades; doesn't touch the saved volume. */
+  setFade: (f: number) => void;
 }
 
 export function usePlayer(callbacks: PlayerCallbacks): PlayerApi {
@@ -113,7 +115,7 @@ export function usePlayer(callbacks: PlayerCallbacks): PlayerApi {
     if (!audioRef.current) {
       const a = new Audio();
       a.preload = "auto";
-      a.volume = volumeRef.current;
+      a.volume = volumeRef.current * fadeRef.current;
       a.addEventListener("timeupdate", () => setCurrentTime(a.currentTime));
       a.addEventListener("durationchange", () => {
         if (isFinite(a.duration)) setDuration(a.duration * 1000);
@@ -287,11 +289,17 @@ export function usePlayer(callbacks: PlayerCallbacks): PlayerApi {
     [getAudio]
   );
 
+  const fadeRef = useRef(1);
+  const setFade = useCallback((f: number) => {
+    fadeRef.current = Math.min(1, Math.max(0, f));
+    if (audioRef.current) audioRef.current.volume = volumeRef.current * fadeRef.current;
+  }, []);
+
   const setVolume = useCallback((v: number) => {
     const clamped = Math.min(1, Math.max(0, v));
     volumeRef.current = clamped;
     setVolumeState(clamped);
-    if (audioRef.current) audioRef.current.volume = clamped;
+    if (audioRef.current) audioRef.current.volume = clamped * fadeRef.current;
     try {
       localStorage.setItem("melodi.volume", String(clamped));
     } catch {
@@ -325,5 +333,6 @@ export function usePlayer(callbacks: PlayerCallbacks): PlayerApi {
     getCurrentTime,
     setVolume,
     toggleMute,
+    setFade,
   };
 }

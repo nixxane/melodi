@@ -16,6 +16,7 @@ export interface ShortcutHandlers {
   lyrics: () => void;
   like: () => void;
   settings: () => void;
+  sleep: () => void;
 }
 
 /** Global keyboard shortcuts. Ignored while typing in text inputs. */
@@ -106,6 +107,10 @@ export function useShortcuts(handlers: ShortcutHandlers) {
         case "f":
         case "F":
           h.like();
+          break;
+        case "z":
+        case "Z":
+          h.sleep();
           break;
         case ",":
           h.settings();

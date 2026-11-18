@@ -11,6 +11,7 @@ interface Props {
   settingUp: boolean;
   /** Discord presence toggle; null when not configured. */
   discord: { on: boolean; toggle: () => void } | null;
+  sleep: string | null;
 }
 
 const HINTS: [string, string][] = [
@@ -38,6 +39,7 @@ export function StatusLine({
   status,
   settingUp,
   discord,
+  sleep,
 }: Props) {
   const mode = isLoading ? "LOAD" : isPlaying ? "PLAY" : hasTrack ? "PAUSE" : "IDLE";
   const backend = status
@@ -56,6 +58,7 @@ export function StatusLine({
       <span className={`sl-seg sl-backend ${backendClass}`}>● {backend}</span>
       <span className="sl-seg">q:{queueCount}</span>
       <span className="sl-seg">vol:{Math.round(volume * 100)}%</span>
+      {sleep ? <span className="sl-seg sl-sleep">zz {sleep}</span> : null}
       {discord ? (
         <button
           className={`sl-seg sl-toggle ${discord.on ? "on" : ""}`}

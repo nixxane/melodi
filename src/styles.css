@@ -1927,3 +1927,97 @@ kbd {
 .top-art .art-ph {
   font-size: 32px;
 }
+.sl-sleep {
+  color: var(--info);
+}
+
+/* ---------- Mini player ---------- */
+.mini {
+  display: flex;
+  gap: 10px;
+  height: 100vh;
+  padding: 8px;
+  background: var(--bg);
+  border: 1px solid var(--accent-dim);
+  overflow: hidden;
+  user-select: none;
+}
+.mini-art {
+  flex: none;
+  width: calc(100vh - 18px);
+  height: calc(100vh - 18px);
+  max-width: 120px;
+  max-height: 120px;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: none;
+  cursor: zoom-in;
+}
+.mini-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.mini-top {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.mini-text {
+  flex: 1;
+  min-width: 0;
+}
+.mini-title {
+  color: var(--accent);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mini-artist {
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mini-sleep {
+  color: var(--info);
+}
+.kbtn.mini-expand {
+  padding: 0 4px;
+}
+.mini-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.mini-controls .kbtn.play {
+  margin: 0 2px;
+  padding: 0 8px;
+}
+.mini-bar {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: pre;
+  text-align: left;
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 0 4px;
+  cursor: pointer;
+}
+.mini-bar .fill {
+  color: var(--accent);
+}
+.mini-bar .rest {
+  color: var(--line-hi);
+}
+.mini-time {
+  flex: none;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}

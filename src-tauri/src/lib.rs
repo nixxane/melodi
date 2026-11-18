@@ -1,5 +1,6 @@
 mod commands;
 mod discord;
+mod tray;
 mod innertube;
 mod lyrics;
 mod ytdlp;
@@ -26,7 +27,10 @@ pub fn run() {
     let lyrics = lyrics::LyricsClient::new().expect("failed to build lyrics client");
 
     tauri::Builder::default()
+        .manage(tray::TrayState::default())
+        .on_window_event(tray::on_window_event)
         .setup(|app| {
+            tray::setup(app);
             // Keep the managed yt-dlp fresh: YouTube regularly breaks old versions.
             if let Ok(dir) = tauri::Manager::path(app).app_data_dir() {
                 tauri::async_runtime::spawn(async move {
@@ -50,6 +54,9 @@ pub fn run() {
             commands::browse_collection,
             commands::lyrics,
             commands::set_locale,
+            tray::set_close_to_tray,
+            tray::set_tray_tooltip,
+            tray::tray_available,
             commands::discord_presence,
             commands::discord_available,
             commands::resolve_stream,

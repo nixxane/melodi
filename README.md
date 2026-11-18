@@ -87,6 +87,9 @@ direct stream.
 - 📻 **Radio** — start a radio of similar songs from any track (right-click → start radio, or `≈` in the player)
 - 🎤 **Lyrics** (`L`) — time-synced, auto-scrolling lyrics from [LRCLIB](https://lrclib.net) (click a line to jump there), falling back to YouTube Music's plain lyrics. Lookups send only the track title, artist and length.
 - 🎮 **Discord Rich Presence** — shows "Listening to <artist>" with the song, cover art, progress bar and a YouTube Music button. Talks only to your local Discord client; toggle with `discord:on/off` in the status bar.
+- 🔗 **Paste a YouTube / YouTube Music link** into search: playlists open (then `+ save` to keep them), song links play with similar songs queued after.
+- 💤 **Sleep timer** (`Z`): 15 / 30 / 45 / 60 min or end of the song, with a gentle fade-out; pauses rather than quitting.
+- 🪟 **Mini player** and **tray icon**: a small always-on-top strip, tray controls (play/pause, next, previous), and an optional "close to tray".
 - ♥ **Liked songs** — like with `F`, the ♡ on any row, or right-click; all your likes in one list.
 - 🎨 **Themes** — amber, phosphor (green), ice, catppuccin, gruvbox, mono and paper (light); scanlines and text size are adjustable.
 - ⚙️ **Settings** (`,`) — themes, region & language for shelves and search (e.g. Türkiye / Türkçe), autoplay, session restore, Discord, update checks, and clearing your local data.
@@ -114,6 +117,8 @@ direct stream.
 | `L` | Lyrics |
 | `F` | Like / unlike the current song |
 | `,` | Settings |
+| `Z` | Sleep timer (cycle) |
+| `Esc` (mini player) | Back to the full window |
 | `Backspace` / `Alt`+`←` / mouse back | Back |
 | `/` or `Ctrl`+`K` | Focus search |
 | `1` / `2` / `3` | Home / Search / Queue |

@@ -19,6 +19,10 @@ interface Props {
   onOpenQueue: () => void;
   lyricsOpen: boolean;
   onLyrics: () => void;
+  /** Sleep timer label (e.g. "23m"), or null when off. */
+  sleepLabel: string | null;
+  onSleep: () => void;
+  onMini: () => void;
 }
 
 /** How many monospace character cells fit in an element's width. */
@@ -62,6 +66,9 @@ export function PlayerBar({
   onPrev,
   onOpenQueue,
   lyricsOpen,
+  sleepLabel,
+  onSleep,
+  onMini,
   onLyrics,
 }: Props) {
   const actions = useActions();
@@ -306,6 +313,14 @@ export function PlayerBar({
             +pl
           </button>
           <button
+            className={`kbtn ${sleepLabel ? "on" : ""}`}
+            onClick={onSleep}
+            aria-pressed={!!sleepLabel}
+            title="Sleep timer (Z): 15 / 30 / 45 / 60 min, end of song, off"
+          >
+            zz{sleepLabel ? ` ${sleepLabel}` : ""}
+          </button>
+          <button
             className={`kbtn ${lyricsOpen ? "on" : ""}`}
             disabled={!track}
             onClick={onLyrics}
@@ -313,6 +328,9 @@ export function PlayerBar({
             title="Lyrics (L)"
           >
             lyrics
+          </button>
+          <button className="kbtn" onClick={onMini} title="Mini player: small, always on top">
+            mini
           </button>
           <button className="kbtn" onClick={onOpenQueue} aria-label="Open queue" title="Queue (3)">
             queue

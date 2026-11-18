@@ -29,6 +29,10 @@ import { useShortcuts } from "./lib/useShortcuts";
 import { useMediaSession } from "./lib/useMediaSession";
 import { useRecent } from "./lib/useRecent";
 import { useDiscordPresence } from "./lib/useDiscordPresence";
+import { parseYouTubeLink } from "./lib/links";
+import { useSleepTimer } from "./lib/useSleepTimer";
+import { useDesktop } from "./lib/useDesktop";
+import { MiniPlayer } from "./components/MiniPlayer";
 import { useUpdater } from "./lib/useUpdater";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { ActionsContext } from "./lib/actions";
@@ -79,6 +83,7 @@ export default function App() {
     onStarted: (it) => handlersRef.current.onStarted?.(it),
   });
   const queue = useQueue(player, push);
+  const sleep = useSleepTimer(player, push);
   handlersRef.current = queue.handlers;
 
   // ---- navigation ------------------------------------------------------------
@@ -231,9 +236,15 @@ export default function App() {
     lyrics: toggleLyrics,
     like: () => player.track && toggleLike(player.track),
     settings: () => go({ name: "settings" }),
+    sleep: sleep.cycle,
   });
   useMediaSession(player, { next: queue.next, prev: queue.prev });
   const discord = useDiscordPresence(player);
+  const desktop = useDesktop(player.track, settings.closeToTray, {
+    toggle: player.toggle,
+    next: queue.next,
+    prev: queue.prev,
+  });
   const updater = useUpdater(settings.checkUpdates);
 
   // ---- actions ---------------------------------------------------------------
@@ -261,6 +272,27 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [go, queue.queue, likes.isLiked]
   );
+
+  const openLink = (link: NonNullable<ReturnType<typeof parseYouTubeLink>>) => {
+    switch (link.kind) {
+      case "playlist":
+        go({ name: "collection", id: `VL${link.listId}`, title: "playlist" });
+        push("Opened playlist from link · + save to keep it");
+        break;
+      case "mix":
+        push("Playing mix from link…");
+        queue.playRadio(link.videoId, link.listId);
+        break;
+      case "video":
+        // The song plus a radio of similar songs after it.
+        push("Playing song from link…");
+        queue.playRadio(link.videoId, `RDAMVM${link.videoId}`);
+        break;
+      case "private":
+        push(`${link.what} needs your YouTube account, which Melodi doesn't use`, "error");
+        break;
+    }
+  };
 
   const playFromSearch = (songs: Item[], index: number) => {
     search.remember(search.query);
@@ -301,6 +333,24 @@ export default function App() {
     setPicking(null);
   };
 
+  if (desktop.mini) {
+    return (
+      <SettingsContext.Provider value={settingsApi}>
+        <ActionsContext.Provider value={actions}>
+          <MiniPlayer
+            player={player}
+            canNext={queue.canNext}
+            canPrev={queue.canPrev}
+            onNext={queue.next}
+            onPrev={queue.prev}
+            onExpand={desktop.exitMini}
+            sleepLabel={sleep.label}
+          />
+        </ActionsContext.Provider>
+      </SettingsContext.Provider>
+    );
+  }
+
   return (
     <SettingsContext.Provider value={settingsApi}>
     <ActionsContext.Provider value={actions}>
@@ -335,7 +385,17 @@ export default function App() {
               <input
                 ref={searchInput}
                 value={search.query}
-                onChange={(e) => search.onQueryChange(e.target.value)}
+                onChange={(e) => {
+                  // A pasted YouTube / YouTube Music link opens or plays right away.
+                  const link = parseYouTubeLink(e.target.value);
+                  if (link) {
+                    search.onQueryChange("");
+                    e.currentTarget.blur();
+                    openLink(link);
+                  } else {
+                    search.onQueryChange(e.target.value);
+                  }
+                }}
                 onFocus={() => route.name !== "search" && search.query && go({ name: "search" })}
                 onKeyDown={(e) => {
                   if (e.key === "Escape") {
@@ -350,7 +410,7 @@ export default function App() {
                     moveFocus(1);
                   }
                 }}
-                placeholder="search songs, artists, albums"
+                placeholder="search, or paste a youtube link"
                 aria-label="Search"
                 spellCheck={false}
               />
@@ -449,6 +509,7 @@ export default function App() {
                 discord={discord}
                 onCheckUpdates={updater.checkNow}
                 status={status}
+                trayAvailable={desktop.trayAvailable}
                 onLocaleChange={(hl, gl) => {
                   invoke("set_locale", { hl, gl })
                     .then(() => {
@@ -576,6 +637,9 @@ export default function App() {
           onOpenQueue={() => go({ name: "queue" })}
           lyricsOpen={route.name === "lyrics"}
           onLyrics={toggleLyrics}
+          sleepLabel={sleep.label}
+          onSleep={sleep.cycle}
+          onMini={desktop.enterMini}
         />
 
         <StatusLine
@@ -588,6 +652,7 @@ export default function App() {
           status={status}
           settingUp={settingUp}
           discord={discord.available ? { on: discord.enabled, toggle: () => discord.setEnabled(!discord.enabled) } : null}
+          sleep={sleep.label}
         />
 
         {picking ? (

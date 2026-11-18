@@ -14,6 +14,8 @@ export interface Settings {
   restoreSession: boolean;
   /** Check GitHub for new versions automatically. */
   checkUpdates: boolean;
+  /** Closing the window hides Melodi to the tray (keeps playing). */
+  closeToTray: boolean;
   /** YouTube Music interface language (hl) and content region (gl). */
   language: string;
   region: string;
@@ -25,6 +27,7 @@ export const DEFAULT_SETTINGS: Settings = {
   textSize: "normal",
   restoreSession: true,
   checkUpdates: true,
+  closeToTray: false,
   language: "en",
   region: "US",
 };

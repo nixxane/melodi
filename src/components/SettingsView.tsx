@@ -11,6 +11,7 @@ interface Props {
   discord: { available: boolean; enabled: boolean; setEnabled: (on: boolean) => void };
   onCheckUpdates: () => Promise<"found" | "none" | "error">;
   status: BackendStatus | null;
+  trayAvailable: boolean;
   /** Called after language/region changed (to reload shelves). */
   onLocaleChange: (hl: string, gl: string) => void;
   data: {
@@ -80,6 +81,7 @@ export function SettingsView({
   discord,
   onCheckUpdates,
   status,
+  trayAvailable,
   onLocaleChange,
   data,
 }: Props) {
@@ -153,6 +155,20 @@ export function SettingsView({
         <h2 className="view-title">playback</h2>
         <Row label="autoplay" hint="keep playing similar songs when the queue runs out">
           <Toggle on={autoplay} onChange={onAutoplay} label="autoplay" />
+        </Row>
+        <Row
+          label="close to tray"
+          hint={
+            trayAvailable
+              ? "closing the window keeps melodi playing in the tray; quit from the tray menu"
+              : "no system tray found on this desktop"
+          }
+        >
+          <Toggle
+            on={trayAvailable && settings.closeToTray}
+            onChange={(v) => trayAvailable && update({ closeToTray: v })}
+            label="keep playing in tray"
+          />
         </Row>
         <Row label="restore session" hint="reopen your last queue (paused) when melodi starts">
           <Toggle
