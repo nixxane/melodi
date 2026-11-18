@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+dist/
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# Logs & misc
+*.log
+.probe/
+logo-source.png
+.DS_Store
+
+# Not for the public repo
+src-tauri/binaries/*.exe
+src-tauri/binaries/yt-dlp*
+design-preview.png
+POLISH_PLAN.md
