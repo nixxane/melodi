@@ -1,5 +1,7 @@
 # Melodi 🎧
 
+[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-support%20Melodi-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/nix100)
+
 A cross-platform, **ad-free desktop music client** built with **Rust + Tauri 2**.
 It streams YouTube Music's catalog through YouTube's public backend — **no account,
 no sign-up, no ads** — with an original UI that is *not* a YouTube Music clone.
@@ -179,6 +181,11 @@ Update bundles are signed with the key in the `TAURI_SIGNING_PRIVATE_KEY` /
   few hours — a URL is only valid for immediate playback, which is fine for a player.
 
 ---
+
+## Support
+
+Melodi is free and has no ads, accounts or tracking. If you enjoy it, you can
+support development on **[Ko-fi](https://ko-fi.com/nix100)** ☕
 
 ## License
 
