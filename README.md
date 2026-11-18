@@ -7,6 +7,18 @@ no sign-up, no ads** — with an original UI that is *not* a YouTube Music clone
 > **Status:** functional MVP. Search + browse + streaming playback work today.
 > Live streams (HLS) are on the roadmap.
 
+![Melodi home: recently played, your artists, and shelves in a terminal-style UI](docs/screenshots/home.png)
+
+## Screenshots
+
+| Artist | Album |
+| --- | --- |
+| ![Artist page with top songs, albums and artist radio](docs/screenshots/artist.png) | ![Album page with full track list](docs/screenshots/album.png) |
+| **Search** | **Synced lyrics** |
+| ![Search results with top result and song list](docs/screenshots/search.png) | ![Time-synced lyrics following playback](docs/screenshots/lyrics.png) |
+| **Your playlists** | **Queue** |
+| ![A local playlist](docs/screenshots/playlist.png) | ![Queue with now playing, up next and autoplay](docs/screenshots/queue.png) |
+
 ---
 
 ## How it works
