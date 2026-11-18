@@ -9,6 +9,8 @@ interface Props {
   volume: number;
   status: BackendStatus | null;
   settingUp: boolean;
+  /** Discord presence toggle; null when not configured. */
+  discord: { on: boolean; toggle: () => void } | null;
 }
 
 const HINTS: [string, string][] = [
@@ -33,6 +35,7 @@ export function StatusLine({
   volume,
   status,
   settingUp,
+  discord,
 }: Props) {
   const mode = isLoading ? "LOAD" : isPlaying ? "PLAY" : hasTrack ? "PAUSE" : "IDLE";
   const backend = status
@@ -51,6 +54,15 @@ export function StatusLine({
       <span className={`sl-seg sl-backend ${backendClass}`}>● {backend}</span>
       <span className="sl-seg">q:{queueCount}</span>
       <span className="sl-seg">vol:{Math.round(volume * 100)}%</span>
+      {discord ? (
+        <button
+          className={`sl-seg sl-toggle ${discord.on ? "on" : ""}`}
+          onClick={discord.toggle}
+          title={discord.on ? "Showing what you play on Discord — click to hide" : "Not shown on Discord — click to show"}
+        >
+          discord:{discord.on ? "on" : "off"}
+        </button>
+      ) : null}
       <span className="sl-fill" />
       <span className="sl-hints">
         {HINTS.map(([k, v]) => (

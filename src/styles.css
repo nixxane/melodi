@@ -1641,3 +1641,14 @@ kbd {
 .modal-hint {
   font-size: 11px;
 }
+
+.sl-toggle {
+  color: var(--faint);
+}
+.sl-toggle.on {
+  color: var(--info);
+}
+.sl-toggle:hover {
+  color: var(--accent-ink);
+  background: var(--accent);
+}

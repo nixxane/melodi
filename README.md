@@ -66,6 +66,7 @@ direct stream.
 - 💿 **Album & playlist pages** — full track lists (playlists up to ~300 tracks), shuffle, radio
 - 📻 **Radio** — start a radio of similar songs from any track (right-click → start radio, or `≈` in the player)
 - 🎤 **Lyrics** (`L`) — time-synced, auto-scrolling lyrics from [LRCLIB](https://lrclib.net) (click a line to jump there), falling back to YouTube Music's plain lyrics. Lookups send only the track title, artist and length.
+- 🎮 **Discord Rich Presence** — shows "Listening to <artist>" with the song, cover art, progress bar and a YouTube Music button. Talks only to your local Discord client; toggle with `discord:on/off` in the status bar.
 - 📝 **Your playlists** — create, rename, reorder (drag) and delete; add songs from any row (`+pl`, right-click), the player, or save a whole queue / album. Stored locally.
 - 🕘 **Recently played** and "your artists" on Home, kept locally. A song only counts after 30 s of listening (or half a short track), and artists can be hidden with `x`.
 - 🏠 **Home shelves** (quick picks, new releases, moods & genres) with a time-aware greeting

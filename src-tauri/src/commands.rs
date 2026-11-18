@@ -89,3 +89,18 @@ pub async fn backend_status(app: AppHandle) -> Result<ytdlp::BackendStatus, Stri
     }
     Ok(ytdlp::status(&dir).await)
 }
+
+/// Update (or clear, with `None`) the Discord "Listening to …" activity.
+#[tauri::command]
+pub fn discord_presence(
+    discord: State<'_, crate::discord::Discord>,
+    presence: Option<crate::discord::Presence>,
+) {
+    discord.update(presence);
+}
+
+/// Whether Discord presence is configured (a client id is set).
+#[tauri::command]
+pub fn discord_available(discord: State<'_, crate::discord::Discord>) -> bool {
+    discord.enabled()
+}

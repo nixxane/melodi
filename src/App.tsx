@@ -23,6 +23,7 @@ import { useToasts } from "./lib/useToasts";
 import { useShortcuts } from "./lib/useShortcuts";
 import { useMediaSession } from "./lib/useMediaSession";
 import { useRecent } from "./lib/useRecent";
+import { useDiscordPresence } from "./lib/useDiscordPresence";
 import { ActionsContext } from "./lib/actions";
 import type { Actions } from "./lib/actions";
 import { artistLabel } from "./lib/format";
@@ -208,6 +209,7 @@ export default function App() {
     lyrics: toggleLyrics,
   });
   useMediaSession(player, { next: queue.next, prev: queue.prev });
+  const discord = useDiscordPresence(player);
 
   // ---- actions ---------------------------------------------------------------
 
@@ -522,6 +524,7 @@ export default function App() {
           volume={player.volume}
           status={status}
           settingUp={settingUp}
+          discord={discord.available ? { on: discord.enabled, toggle: () => discord.setEnabled(!discord.enabled) } : null}
         />
 
         {picking ? (

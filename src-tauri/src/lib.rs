@@ -1,4 +1,5 @@
 mod commands;
+mod discord;
 mod innertube;
 mod lyrics;
 mod ytdlp;
@@ -28,6 +29,7 @@ pub fn run() {
         .manage(inner)
         .manage(StreamCache::default())
         .manage(lyrics)
+        .manage(discord::Discord::start())
         .invoke_handler(tauri::generate_handler![
             commands::search,
             commands::browse_home,
@@ -35,6 +37,8 @@ pub fn run() {
             commands::browse_artist,
             commands::browse_collection,
             commands::lyrics,
+            commands::discord_presence,
+            commands::discord_available,
             commands::resolve_stream,
             commands::prefetch_stream,
             commands::backend_status
