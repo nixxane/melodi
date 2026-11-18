@@ -15,7 +15,7 @@ export interface Playlist {
 const newId = () => `pl_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 /** Only what a track needs to be shown and played again. */
-const slim = (i: Item): Item => ({
+export const slim = (i: Item): Item => ({
   kind: "song",
   video_id: i.video_id,
   browse_id: null,

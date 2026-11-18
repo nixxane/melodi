@@ -87,6 +87,9 @@ direct stream.
 - 📻 **Radio** — start a radio of similar songs from any track (right-click → start radio, or `≈` in the player)
 - 🎤 **Lyrics** (`L`) — time-synced, auto-scrolling lyrics from [LRCLIB](https://lrclib.net) (click a line to jump there), falling back to YouTube Music's plain lyrics. Lookups send only the track title, artist and length.
 - 🎮 **Discord Rich Presence** — shows "Listening to <artist>" with the song, cover art, progress bar and a YouTube Music button. Talks only to your local Discord client; toggle with `discord:on/off` in the status bar.
+- ♥ **Liked songs** — like with `F`, the ♡ on any row, or right-click; all your likes in one list.
+- 🎨 **Themes** — amber, phosphor (green), ice, catppuccin, gruvbox, mono and paper (light); scanlines and text size are adjustable.
+- ⚙️ **Settings** (`,`) — themes, region & language for shelves and search (e.g. Türkiye / Türkçe), autoplay, session restore, Discord, update checks, and clearing your local data.
 - 📝 **Your playlists** — create, rename, reorder (drag) and delete; add songs from any row (`+pl`, right-click), the player, or save a whole queue / album. Stored locally.
 - 🕘 **Recently played** and "your artists" on Home, kept locally. A song only counts after 30 s of listening (or half a short track), and artists can be hidden with `x`.
 - 🏠 **Home shelves** (quick picks, new releases, moods & genres) with a time-aware greeting
@@ -109,6 +112,8 @@ direct stream.
 | `↑` / `↓` | Volume +5% / −5% |
 | `M` | Mute / unmute |
 | `L` | Lyrics |
+| `F` | Like / unlike the current song |
+| `,` | Settings |
 | `Backspace` / `Alt`+`←` / mouse back | Back |
 | `/` or `Ctrl`+`K` | Focus search |
 | `1` / `2` / `3` | Home / Search / Queue |

@@ -121,8 +121,21 @@ export function PlayerBar({
           {thumb ? <img src={thumb} alt="" draggable={false} /> : <span>♪</span>}
         </div>
         <div className="now-meta">
-          <div className="now-title" title={track?.title}>
-            {track?.title ?? "nothing playing"}
+          <div className="now-title-row">
+            <div className="now-title" title={track?.title}>
+              {track?.title ?? "nothing playing"}
+            </div>
+            {track ? (
+              <button
+                className={`like-btn ${actions.isLiked(track.video_id) ? "on" : ""}`}
+                onClick={() => actions.toggleLike(track)}
+                aria-pressed={actions.isLiked(track.video_id)}
+                aria-label={actions.isLiked(track.video_id) ? "Unlike" : "Like"}
+                title={actions.isLiked(track.video_id) ? "Unlike (F)" : "Like (F)"}
+              >
+                {actions.isLiked(track.video_id) ? "♥︎" : "♡"}
+              </button>
+            ) : null}
           </div>
           <div className="now-artist" title={track ? artistLabel(track) : undefined}>
             {track?.artist_id ? (

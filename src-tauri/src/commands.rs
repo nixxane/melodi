@@ -26,6 +26,12 @@ pub async fn up_next(
         .map_err(|e| e.to_string())
 }
 
+/// Language / region for YouTube Music content (e.g. "tr", "TR").
+#[tauri::command]
+pub fn set_locale(state: State<'_, InnerTube>, hl: String, gl: String) -> Result<(), String> {
+    state.set_locale(&hl, &gl).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn browse_artist(state: State<'_, InnerTube>, browse_id: String) -> Result<Artist, String> {
     state.artist(&browse_id).await.map_err(|e| e.to_string())

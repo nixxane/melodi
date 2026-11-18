@@ -56,5 +56,7 @@ export function useRecent() {
   const hiddenSet = new Set(hidden);
   const visible = recent.filter((i) => !i.artist_id || !hiddenSet.has(i.artist_id));
 
-  return { recent: visible, record, forget, hiddenArtists: hidden, hideArtist, unhideAll };
+  const clearAll = useCallback(() => setRecentSaved(() => []), [setRecentSaved]);
+
+  return { recent: visible, record, forget, clearAll, hiddenArtists: hidden, hideArtist, unhideAll };
 }

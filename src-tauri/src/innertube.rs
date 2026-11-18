@@ -89,21 +89,46 @@ pub struct Collection {
 
 pub struct InnerTube {
     http: reqwest::Client,
+    /// (hl, gl): interface language and content region, e.g. ("tr", "TR").
+    locale: std::sync::RwLock<(String, String)>,
 }
 
 impl InnerTube {
     pub fn new() -> Result<Self, Error> {
         let http = reqwest::Client::builder().user_agent(USER_AGENT).build()?;
-        Ok(Self { http })
+        Ok(Self {
+            http,
+            locale: std::sync::RwLock::new(("en".into(), "US".into())),
+        })
+    }
+
+    /// Set the language (`hl`, e.g. "tr") and region (`gl`, e.g. "TR") used
+    /// for shelves, charts and labels. Invalid codes are rejected.
+    pub fn set_locale(&self, hl: &str, gl: &str) -> Result<(), Error> {
+        let ok = |s: &str, max: usize| {
+            !s.is_empty() && s.len() <= max && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+        };
+        if !ok(hl, 8) || !ok(gl, 3) {
+            return Err(Error::Msg("invalid language or region code".into()));
+        }
+        if let Ok(mut l) = self.locale.write() {
+            *l = (hl.to_string(), gl.to_ascii_uppercase());
+        }
+        Ok(())
     }
 
     async fn call(&self, endpoint: &str, mut body: Value) -> Result<Value, Error> {
+        let (hl, gl) = self
+            .locale
+            .read()
+            .map(|l| l.clone())
+            .unwrap_or_else(|_| ("en".into(), "US".into()));
         body["context"] = serde_json::json!({
             "client": {
                 "clientName": "WEB_REMIX",
                 "clientVersion": CLIENT_VERSION,
-                "hl": "en",
-                "gl": "US"
+                "hl": hl,
+                "gl": gl
             },
             "user": {}
         });
@@ -795,6 +820,17 @@ mod tests {
         let others: Vec<_> = s.iter().filter(|i| i.kind != "song").map(|i| format!("{}:{}", i.kind, i.title)).collect();
         println!("search non-songs: {:?}", &others[..others.len().min(6)]);
         assert!(s.iter().any(|i| i.kind == "artist"));
+    }
+
+    #[tokio::test]
+    #[ignore = "requires network access"]
+    async fn locale_changes_shelves() {
+        let it = InnerTube::new().unwrap();
+        it.set_locale("tr", "TR").unwrap();
+        let shelves = it.home().await.unwrap();
+        println!("tr/TR shelves: {:?}", shelves.iter().map(|s| &s.title).take(4).collect::<Vec<_>>());
+        assert!(!shelves.is_empty());
+        assert!(it.set_locale("x y", "US").is_err());
     }
 
     #[tokio::test]

@@ -3,6 +3,7 @@ import { prefetchStream, upNext } from "../api";
 import type { Item, RepeatMode } from "../types";
 import type { PlayerApi, PlayerCallbacks } from "./usePlayer";
 import { loadJSON, removeKey, saveJSON } from "./storage";
+import { readSettings } from "./useSettings";
 
 const SESSION_KEY = "melodi.session";
 const MAX_SAVED = 300;
@@ -28,7 +29,7 @@ const idOf = (i: Item) => i.video_id ?? "";
 export function useQueue(player: PlayerApi, notify: Notify) {
   const saved = useRef<SavedSession | null>(null);
   if (saved.current === null) {
-    const s = loadJSON<SavedSession | null>(SESSION_KEY, null);
+    const s = readSettings().restoreSession ? loadJSON<SavedSession | null>(SESSION_KEY, null) : null;
     saved.current =
       s && Array.isArray(s.queue) && s.queue.length > 0
         ? s

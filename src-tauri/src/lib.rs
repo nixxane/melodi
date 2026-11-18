@@ -49,6 +49,7 @@ pub fn run() {
             commands::browse_artist,
             commands::browse_collection,
             commands::lyrics,
+            commands::set_locale,
             commands::discord_presence,
             commands::discord_available,
             commands::resolve_stream,

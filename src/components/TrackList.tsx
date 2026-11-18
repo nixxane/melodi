@@ -166,6 +166,7 @@ export function TrackList({
                 </span>
               ) : null}
               <span className="col-title" title={item.title}>
+                {actions.isLiked(item.video_id) ? <span className="liked-mark" aria-label="liked">♥︎</span> : null}
                 {item.title}
                 {item.explicit ? <span className="e-badge">E</span> : null}
               </span>
@@ -188,6 +189,11 @@ export function TrackList({
               <span className="row-actions">
                 {onPlayNext ? action("+next", "Play next", () => onPlayNext(item, i)) : null}
                 {onAddToQueue ? action("+q", "Add to queue", () => onAddToQueue(item, i)) : null}
+                {action(
+                  actions.isLiked(item.video_id) ? "♥︎" : "♡",
+                  actions.isLiked(item.video_id) ? "Unlike" : "Like",
+                  () => actions.toggleLike(item)
+                )}
                 {action("+pl", "Add to playlist", () => actions.addToPlaylist([item]))}
                 {action("≈", "Start radio", () => actions.startRadio(item))}
                 {onRemove && !isCurrent

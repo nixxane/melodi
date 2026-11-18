@@ -14,38 +14,42 @@ export type UpdatePhase = "available" | "downloading" | "installing" | "failed";
  * Checks GitHub Releases for a newer signed build and installs it on request.
  * Only runs in installed (production) builds.
  */
-export function useUpdater() {
+export function useUpdater(autoCheck = true) {
   const [update, setUpdate] = useState<Update | null>(null);
   const [phase, setPhase] = useState<UpdatePhase>("available");
   const [progress, setProgress] = useState<number | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const busy = useRef(false);
 
-  const runCheck = useCallback(async () => {
-    if (busy.current) return;
+  /** Returns "found", "none" or "error". */
+  const runCheck = useCallback(async (manual = false): Promise<"found" | "none" | "error"> => {
+    if (busy.current) return "none";
     try {
       const u = await check();
       if (u) {
         setUpdate((prev) => {
-          if (prev?.version !== u.version) setDismissed(false);
+          if (manual || prev?.version !== u.version) setDismissed(false);
           return u;
         });
         setPhase("available");
+        return "found";
       }
+      return "none";
     } catch {
       /* offline or no release yet: try again later */
+      return "error";
     }
   }, []);
 
   useEffect(() => {
-    if (import.meta.env.DEV) return;
+    if (import.meta.env.DEV || !autoCheck) return;
     const first = window.setTimeout(runCheck, FIRST_CHECK_MS);
     const every = window.setInterval(runCheck, CHECK_EVERY_MS);
     return () => {
       window.clearTimeout(first);
       window.clearInterval(every);
     };
-  }, [runCheck]);
+  }, [runCheck, autoCheck]);
 
   const install = useCallback(async () => {
     if (!update || busy.current) return;
@@ -86,5 +90,6 @@ export function useUpdater() {
     install,
     later: () => setDismissed(true),
     openReleases,
+    checkNow: () => runCheck(true),
   };
 }

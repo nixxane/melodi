@@ -68,7 +68,9 @@ export type Route =
   | { name: "lyrics" }
   | { name: "artist"; id: string; title: string }
   | { name: "collection"; id: string; title: string }
-  | { name: "playlist"; id: string };
+  | { name: "playlist"; id: string }
+  | { name: "liked" }
+  | { name: "settings" };
 
 export interface Shelf {
   title: string;

@@ -24,6 +24,58 @@
   --fs: 13px;
   --lh: 20px;
   --playerbar-h: 96px;
+  --scanline: rgba(0, 0, 0, 0.18);
+}
+
+/* ---------- Themes (html[data-theme]) ---------- */
+:root[data-theme="phosphor"] {
+  --bg: #050a06; --bg-2: #0a120c; --hl: #102016; --line: #1f3a26; --line-hi: #2f6a40;
+  --fg: #c8f5d0; --dim: #7fb88c; --faint: #4a6e53;
+  --accent: #3dff7a; --accent-dim: #1e8040; --accent-ink: #021006;
+  --ok: #3dff7a; --info: #7cd6c9; --err: #ff6e5e;
+}
+:root[data-theme="ice"] {
+  --bg: #070b12; --bg-2: #0c1220; --hl: #131c30; --line: #22314f; --line-hi: #3a5383;
+  --fg: #dbe7ff; --dim: #8fa3c8; --faint: #536384;
+  --accent: #5cc8ff; --accent-dim: #2a6a8f; --accent-ink: #04101a;
+  --ok: #8fd6a4; --info: #b9a4ff; --err: #ff7a85;
+}
+:root[data-theme="catppuccin"] {
+  --bg: #1e1e2e; --bg-2: #181825; --hl: #313244; --line: #45475a; --line-hi: #6c7086;
+  --fg: #cdd6f4; --dim: #a6adc8; --faint: #7f849c;
+  --accent: #cba6f7; --accent-dim: #7f6a9c; --accent-ink: #1e1e2e;
+  --ok: #a6e3a1; --info: #89dceb; --err: #f38ba8;
+  --scanline: rgba(0, 0, 0, 0.12);
+}
+:root[data-theme="gruvbox"] {
+  --bg: #1d2021; --bg-2: #282828; --hl: #32302f; --line: #504945; --line-hi: #7c6f64;
+  --fg: #ebdbb2; --dim: #bdae93; --faint: #7c6f64;
+  --accent: #fabd2f; --accent-dim: #b57614; --accent-ink: #1d2021;
+  --ok: #b8bb26; --info: #83a598; --err: #fb4934;
+}
+:root[data-theme="mono"] {
+  --bg: #0a0a0a; --bg-2: #111111; --hl: #1c1c1c; --line: #333333; --line-hi: #666666;
+  --fg: #e6e6e6; --dim: #a0a0a0; --faint: #5c5c5c;
+  --accent: #ffffff; --accent-dim: #777777; --accent-ink: #000000;
+  --ok: #dddddd; --info: #bbbbbb; --err: #ff6e6e;
+}
+:root[data-theme="paper"] {
+  color-scheme: light;
+  --bg: #f3ecdc; --bg-2: #ebe2cd; --hl: #e4d8bd; --line: #c8b894; --line-hi: #a8956c;
+  --fg: #2a2216; --dim: #5f523c; --faint: #8f8064;
+  --accent: #b45309; --accent-dim: #d9a066; --accent-ink: #fff8ec;
+  --ok: #3f7d3a; --info: #1f6f8b; --err: #b42318;
+  --scanline: rgba(60, 40, 10, 0.06);
+}
+
+/* Text size (html[data-size]) */
+:root[data-size="small"] {
+  --fs: 12px;
+  --lh: 18px;
+}
+:root[data-size="large"] {
+  --fs: 14px;
+  --lh: 22px;
 }
 
 * {
@@ -115,7 +167,7 @@ img {
   pointer-events: none;
   z-index: 9999;
   background:
-    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.18) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(to bottom, var(--scanline) 0 1px, transparent 1px 3px),
     radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.35) 100%);
   mix-blend-mode: multiply;
 }
@@ -432,7 +484,7 @@ img {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(to top, var(--bg) 0%, rgba(11, 10, 8, 0.2) 70%),
+    linear-gradient(to top, var(--bg) 0%, color-mix(in srgb, var(--bg) 20%, transparent) 70%),
     repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.25) 0 1px, transparent 1px 3px);
 }
 .page-art {
@@ -555,7 +607,7 @@ img {
   color: var(--accent);
   font-weight: 700;
   border-left-color: var(--accent);
-  text-shadow: 0 0 8px rgba(245, 168, 60, 0.45);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 .lyric:hover {
   background: var(--hl);
@@ -816,7 +868,7 @@ img {
 .track-row.playing {
   color: var(--accent);
   border-left-color: var(--accent);
-  background: rgba(245, 168, 60, 0.07);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
 }
 .track-row.drop-target {
   box-shadow: inset 0 1px 0 var(--accent);
@@ -1210,7 +1262,7 @@ img {
 }
 .ascii-bar .head {
   color: var(--fg);
-  text-shadow: 0 0 6px rgba(245, 168, 60, 0.8);
+  text-shadow: 0 0 6px color-mix(in srgb, var(--accent) 80%, transparent);
 }
 .ascii-bar .rest {
   color: var(--line-hi);
@@ -1685,4 +1737,152 @@ kbd {
 }
 .update-msg b {
   color: var(--accent);
+}
+
+/* Scanlines off (html[data-scanlines="off"]) */
+:root[data-scanlines="off"] .app::after,
+:root[data-scanlines="off"] .card-art::after,
+:root[data-scanlines="off"] .top-art::after,
+:root[data-scanlines="off"] .now-thumb::after,
+:root[data-scanlines="off"] .page-art::after {
+  display: none;
+}
+:root[data-theme="paper"] .app::after {
+  mix-blend-mode: normal;
+  background: repeating-linear-gradient(to bottom, var(--scanline) 0 1px, transparent 1px 3px);
+}
+
+/* ---------- Likes ---------- */
+.liked-mark {
+  color: var(--err);
+  margin-right: 1ch;
+  font-weight: 400;
+}
+.track-row:focus-visible .liked-mark {
+  color: var(--accent-ink);
+}
+.now-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.like-btn {
+  flex: none;
+  color: var(--faint);
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.like-btn:hover {
+  color: var(--err);
+}
+.like-btn.on {
+  color: var(--err);
+}
+.page-art.liked-art {
+  font-size: 72px;
+  color: var(--err);
+  background: color-mix(in srgb, var(--err) 8%, var(--bg));
+}
+
+/* ---------- Settings ---------- */
+.settings {
+  max-width: 980px;
+}
+.set-section {
+  margin-bottom: 26px;
+}
+.set-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 280px) 1fr;
+  align-items: center;
+  gap: 4px 24px;
+  padding: 6px 8px;
+  border-bottom: 1px dashed var(--line);
+}
+.set-row:hover {
+  background: var(--hl);
+}
+.set-label {
+  display: flex;
+  flex-direction: column;
+}
+.set-hint {
+  color: var(--faint);
+  font-size: 0.92em;
+}
+.set-note {
+  margin: 0 8px 6px;
+}
+.set-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+.set-select {
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  padding: 1px 6px;
+  outline: none;
+}
+.set-select:focus {
+  border-color: var(--accent);
+}
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+.theme-card:hover,
+.theme-card:focus-visible {
+  border-color: var(--accent-dim);
+  background: var(--hl);
+  outline: none;
+}
+.theme-card.on {
+  border-color: var(--accent);
+}
+.theme-name {
+  white-space: pre;
+  font-weight: 700;
+}
+.theme-card.on .theme-name {
+  color: var(--accent);
+}
+.theme-swatch {
+  display: flex;
+  height: 18px;
+  border: 1px solid var(--line);
+}
+.theme-swatch span {
+  flex: 1;
+}
+.about {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 8px;
+}
+.about .accent {
+  color: var(--accent);
+  font-weight: 700;
+}
+.about-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
 }

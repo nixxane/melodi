@@ -15,6 +15,11 @@ import { LyricsView } from "./components/LyricsView";
 import { PlaylistView } from "./components/PlaylistView";
 import { PlaylistPicker } from "./components/PlaylistPicker";
 import { usePlaylists } from "./lib/usePlaylists";
+import { useLikes } from "./lib/useLikes";
+import { SettingsContext, useSettingsState } from "./lib/useSettings";
+import { LikedView } from "./components/LikedView";
+import { SettingsView } from "./components/SettingsView";
+import { invoke } from "@tauri-apps/api/core";
 import { usePlayer } from "./lib/usePlayer";
 import type { PlayerCallbacks } from "./lib/usePlayer";
 import { useQueue } from "./lib/useQueue";
@@ -49,8 +54,20 @@ export default function App() {
   const [homeError, setHomeError] = useState(false);
 
   const { toasts, push, dismiss } = useToasts();
-  const { recent, record, forget, hiddenArtists, hideArtist, unhideAll } = useRecent();
+  const { recent, record, forget, clearAll: clearRecent, hiddenArtists, hideArtist, unhideAll } = useRecent();
   const pl = usePlaylists();
+  const likes = useLikes();
+  const settingsApi = useSettingsState();
+  const { settings } = settingsApi;
+
+  const likesToggle = likes.toggle;
+  const toggleLike = useCallback(
+    (item: Item) => {
+      const on = likesToggle(item);
+      push(on ? "♥︎ Added to liked songs" : "Removed from liked songs");
+    },
+    [likesToggle, push]
+  );
   /** Songs waiting for the "add to playlist" picker (null = closed). */
   const [picking, setPicking] = useState<Item[] | null>(null);
 
@@ -111,7 +128,10 @@ export default function App() {
       .then(setStatus)
       .catch(() => setStatus({ ytdlp_available: false, path: null, version: null }))
       .finally(() => setSettingUp(false));
-    loadHome();
+    // Apply the saved region/language before the first shelves load.
+    invoke("set_locale", { hl: settings.language, gl: settings.region })
+      .catch(() => {})
+      .finally(loadHome);
     return () => {
       cancelled = true;
       unlisten?.();
@@ -209,10 +229,12 @@ export default function App() {
     moveFocus,
     back,
     lyrics: toggleLyrics,
+    like: () => player.track && toggleLike(player.track),
+    settings: () => go({ name: "settings" }),
   });
   useMediaSession(player, { next: queue.next, prev: queue.prev });
   const discord = useDiscordPresence(player);
-  const updater = useUpdater();
+  const updater = useUpdater(settings.checkUpdates);
 
   // ---- actions ---------------------------------------------------------------
 
@@ -232,10 +254,12 @@ export default function App() {
         const songs = items.filter((i) => i.video_id);
         if (songs.length) setPicking(songs);
       },
+      toggleLike,
+      isLiked: likes.isLiked,
     }),
     // queue functions are recreated each render but read state through refs
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [go, queue.queue]
+    [go, queue.queue, likes.isLiked]
   );
 
   const playFromSearch = (songs: Item[], index: number) => {
@@ -278,6 +302,7 @@ export default function App() {
   };
 
   return (
+    <SettingsContext.Provider value={settingsApi}>
     <ActionsContext.Provider value={actions}>
       <div className="app">
         <Sidebar
@@ -290,6 +315,11 @@ export default function App() {
           activePlaylistId={route.name === "playlist" ? route.id : null}
           onOpenPlaylist={(id) => go({ name: "playlist", id })}
           onCreatePlaylist={(name) => go({ name: "playlist", id: pl.create(name) })}
+          likedCount={likes.likes.length}
+          likedOpen={route.name === "liked"}
+          onOpenLiked={() => go({ name: "liked" })}
+          settingsOpen={route.name === "settings"}
+          onOpenSettings={() => go({ name: "settings" })}
         />
 
         <main className="main panel">
@@ -405,6 +435,36 @@ export default function App() {
                 onRemoveAt={(i) => pl.removeAt(route.id, i)}
                 onMove={(from, to) => pl.move(route.id, from, to)}
                 {...rowProps}
+              />
+            )}
+
+            {route.name === "liked" && (
+              <LikedView likes={likes.likes} onPlayList={queue.playList} onUnlike={likes.unlike} {...rowProps} />
+            )}
+
+            {route.name === "settings" && (
+              <SettingsView
+                autoplay={queue.autoplay}
+                onAutoplay={queue.setAutoplay}
+                discord={discord}
+                onCheckUpdates={updater.checkNow}
+                status={status}
+                onLocaleChange={(hl, gl) => {
+                  invoke("set_locale", { hl, gl })
+                    .then(() => {
+                      loadHome();
+                      push(`Region & language updated`);
+                    })
+                    .catch(() => push("Couldn't change region", "error"));
+                }}
+                data={{
+                  recentCount: recent.length,
+                  hiddenCount: hiddenArtists.length,
+                  historyCount: search.history.length,
+                  clearRecent,
+                  unhideAll,
+                  clearHistory: search.clearHistory,
+                }}
               />
             )}
 
@@ -552,5 +612,6 @@ export default function App() {
         <Toasts toasts={toasts} onDismiss={dismiss} />
       </div>
     </ActionsContext.Provider>
+    </SettingsContext.Provider>
   );
 }

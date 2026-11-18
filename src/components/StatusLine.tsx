@@ -20,7 +20,9 @@ const HINTS: [string, string][] = [
   ["j/k", "move"],
   ["/", "search"],
   ["1-3", "views"],
+  ["f", "like"],
   ["l", "lyrics"],
+  [",", "settings"],
   ["⌫", "back"],
   ["m", "mute"],
 ];

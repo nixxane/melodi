@@ -12,6 +12,9 @@ export interface Actions {
   addToQueue: (item: Item) => void;
   /** Open the "add to playlist" picker for these songs. */
   addToPlaylist: (items: Item[]) => void;
+  /** Like / unlike a song. */
+  toggleLike: (item: Item) => void;
+  isLiked: (videoId: string | null | undefined) => boolean;
 }
 
 const noop = () => {};
@@ -23,6 +26,8 @@ export const ActionsContext = createContext<Actions>({
   playNext: noop,
   addToQueue: noop,
   addToPlaylist: noop,
+  toggleLike: noop,
+  isLiked: () => false,
 });
 
 export const useActions = () => useContext(ActionsContext);

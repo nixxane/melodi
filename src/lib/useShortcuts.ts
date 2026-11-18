@@ -14,6 +14,8 @@ export interface ShortcutHandlers {
   moveFocus: (dir: 1 | -1) => void;
   back: () => void;
   lyrics: () => void;
+  like: () => void;
+  settings: () => void;
 }
 
 /** Global keyboard shortcuts. Ignored while typing in text inputs. */
@@ -100,6 +102,13 @@ export function useShortcuts(handlers: ShortcutHandlers) {
         case "k":
           e.preventDefault();
           h.moveFocus(-1);
+          break;
+        case "f":
+        case "F":
+          h.like();
+          break;
+        case ",":
+          h.settings();
           break;
         case "l":
         case "L":

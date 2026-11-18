@@ -12,6 +12,11 @@ interface Props {
   activePlaylistId: string | null;
   onOpenPlaylist: (id: string) => void;
   onCreatePlaylist: (name: string) => void;
+  likedCount: number;
+  likedOpen: boolean;
+  onOpenLiked: () => void;
+  settingsOpen: boolean;
+  onOpenSettings: () => void;
 }
 
 const ITEMS: { id: View; key: string; label: string }[] = [
@@ -30,6 +35,11 @@ export function Sidebar({
   activePlaylistId,
   onOpenPlaylist,
   onCreatePlaylist,
+  likedCount,
+  likedOpen,
+  onOpenLiked,
+  settingsOpen,
+  onOpenSettings,
 }: Props) {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
@@ -85,6 +95,17 @@ export function Sidebar({
         </div>
 
         <div className="side-list">
+          <button
+            className={`nav-item ${likedOpen ? "active" : ""}`}
+            onClick={onOpenLiked}
+            title={`liked songs · ${likedCount}`}
+          >
+            <span className="nav-cursor">{likedOpen ? ">" : " "}</span>
+            <span className="nav-label ellipsis">
+              <span className="liked-mark">♥︎</span>liked songs
+            </span>
+            <span className="nav-badge">{likedCount}</span>
+          </button>
           {playlists.map((p) => {
             const active = p.id === activePlaylistId;
             return (
@@ -121,11 +142,19 @@ export function Sidebar({
                 onKeyDown={(e) => e.key === "Escape" && finish(false)}
               />
             </form>
-          ) : playlists.length === 0 ? (
-            <div className="side-empty">-- none yet --</div>
           ) : null}
         </div>
       </div>
+      <div className="sidebar-spacer" />
+      <button
+        className={`nav-item ${settingsOpen ? "active" : ""}`}
+        onClick={onOpenSettings}
+        title="settings (,)"
+      >
+        <span className="nav-cursor">{settingsOpen ? ">" : " "}</span>
+        <span className="nav-key">,</span>
+        <span className="nav-label">settings</span>
+      </button>
     </aside>
   );
 }

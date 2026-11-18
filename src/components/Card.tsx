@@ -16,6 +16,11 @@ export function songMenu(item: Item, play: () => void, actions: ReturnType<typeo
     { label: "play", hint: "⏎", onClick: play },
     { label: "play next", onClick: () => actions.playNext(item) },
     { label: "add to queue", onClick: () => actions.addToQueue(item) },
+    {
+      label: actions.isLiked(item.video_id) ? "unlike" : "like",
+      hint: "♥︎",
+      onClick: () => actions.toggleLike(item),
+    },
     { label: "add to playlist…", hint: "+", onClick: () => actions.addToPlaylist([item]) },
     { label: "start radio", hint: "≈", onClick: () => actions.startRadio(item) },
   ];
