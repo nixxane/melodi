@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { browseArtist } from "../api";
 import type { Artist, Item } from "../types";
-import { friendlyError, pickThumb } from "../lib/format";
+import { friendlyError } from "../lib/format";
 import { useActions } from "../lib/actions";
 import { Card } from "./Card";
 import { ShelfRow } from "./ShelfRow";
 import { Spinner } from "./Spinner";
 import { TrackList } from "./TrackList";
+import { Art } from "./Art";
 
 interface Props {
   id: string;
@@ -153,6 +154,7 @@ export function ArtistView({
                 <Card
                   key={`${item.video_id ?? item.browse_id ?? item.title}-${ii}`}
                   item={item}
+                  eager={ii < 8}
                   onPlay={(it) =>
                     onPlayList(
                       songs,
@@ -171,10 +173,9 @@ export function ArtistView({
 
 /** Square-ish artwork used by page headers. */
 export function PageArt({ item, round }: { item: { thumbnails: Item["thumbnails"] }; round?: boolean }) {
-  const url = pickThumb({ thumbnails: item.thumbnails } as Item, 400);
   return (
     <div className={`page-art ${round ? "round" : ""}`}>
-      {url ? <img src={url} alt="" draggable={false} /> : <span>♪</span>}
+      <Art thumbnails={item.thumbnails} size={400} eager />
     </div>
   );
 }

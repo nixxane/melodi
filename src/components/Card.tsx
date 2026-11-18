@@ -1,5 +1,6 @@
 import type { Item } from "../types";
-import { artistLabel, pickThumb } from "../lib/format";
+import { artistLabel } from "../lib/format";
+import { Art } from "./Art";
 import { useActions } from "../lib/actions";
 import { ContextMenu, useContextMenu } from "./ContextMenu";
 import type { MenuItem } from "./ContextMenu";
@@ -9,6 +10,8 @@ interface Props {
   onPlay: (item: Item) => void;
   /** Extra context-menu entries (e.g. "remove from recently played"). */
   extraMenu?: MenuItem[];
+  /** Load the artwork immediately (cards visible when the page opens). */
+  eager?: boolean;
 }
 
 export function songMenu(item: Item, play: () => void, actions: ReturnType<typeof useActions>): MenuItem[] {
@@ -33,12 +36,11 @@ export function songMenu(item: Item, play: () => void, actions: ReturnType<typeo
   return m;
 }
 
-export function Card({ item, onPlay, extraMenu }: Props) {
+export function Card({ item, onPlay, extraMenu, eager }: Props) {
   const ctx = useContextMenu();
   const actions = useActions();
   const isSong = item.kind === "song" && !!item.video_id;
   const isArtist = item.kind === "artist";
-  const thumb = pickThumb(item, 400);
   const label = isSong ? artistLabel(item) : item.subtitle || item.kind;
 
   const activate = () => (isSong ? onPlay(item) : actions.open(item));
@@ -63,17 +65,7 @@ export function Card({ item, onPlay, extraMenu }: Props) {
       onContextMenu={(e) => ctx.open(e, menu)}
     >
       <div className="card-art">
-        {thumb ? (
-          <img
-            src={thumb}
-            alt=""
-            loading="lazy"
-            draggable={false}
-            onError={(e) => (e.currentTarget.style.visibility = "hidden")}
-          />
-        ) : (
-          <div className="placeholder">♪</div>
-        )}
+        <Art thumbnails={item.thumbnails} size={400} eager={eager} />
         <div className="card-play">{isSong ? "▶ play" : "→ open"}</div>
       </div>
       <div className="card-title" title={item.title}>

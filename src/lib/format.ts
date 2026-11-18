@@ -57,3 +57,18 @@ export function friendlyError(e: unknown): string {
   if (!line || line.length > 100) return "Couldn't load this track";
   return line;
 }
+
+/**
+ * Every URL worth trying for an artwork, best first: the resized Google URL,
+ * the largest original, then the other sizes YouTube provided. Used to fall
+ * back when one fails to load.
+ */
+export function thumbCandidates(thumbnails: Item["thumbnails"] | undefined, size: number): string[] {
+  const ts = [...(thumbnails ?? [])].sort((a, b) => b.width - a.width);
+  if (ts.length === 0) return [];
+  const out: string[] = [];
+  const first = pickThumb({ thumbnails: ts } as Item, size);
+  if (first) out.push(first);
+  for (const t of ts) out.push(t.url);
+  return [...new Set(out)];
+}

@@ -68,6 +68,7 @@ function ShelfSection({
           <Card
             key={item.video_id ?? `${item.kind}-${item.browse_id ?? item.title}-${ii}`}
             item={item}
+            eager={ii < 8}
             onPlay={(it) =>
               onPlayList(
                 songs,

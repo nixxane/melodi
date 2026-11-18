@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { Item } from "../types";
-import { artistLabel, formatTime, pickThumb } from "../lib/format";
+import { artistLabel, formatTime } from "../lib/format";
+import { Art } from "./Art";
 import { useActions } from "../lib/actions";
 import { songMenu } from "./Card";
 import { ContextMenu, useContextMenu } from "./ContextMenu";
@@ -95,7 +96,6 @@ export function TrackList({
         const isLoading = item.video_id != null && item.video_id === loadingVideoId;
         const draggable = !!onReorder && !isCurrent;
         const num = String(i + 1 + indexBase).padStart(width, "0");
-        const thumb = thumbs ? pickThumb(item, 64) : null;
 
         return (
           <div key={item.video_id ?? `${item.kind}-${item.title}-${i}`}>
@@ -162,7 +162,7 @@ export function TrackList({
               </span>
               {thumbs ? (
                 <span className="row-thumb">
-                  {thumb ? <img src={thumb} alt="" loading="lazy" draggable={false} /> : "♪"}
+                  <Art thumbnails={item.thumbnails} size={64} eager={i < 15} />
                 </span>
               ) : null}
               <span className="col-title" title={item.title}>

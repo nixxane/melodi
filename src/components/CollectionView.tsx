@@ -150,6 +150,7 @@ export function CollectionView({
               <Card
                 key={`${item.video_id ?? item.browse_id ?? item.title}-${ii}`}
                 item={item}
+                eager={ii < 8}
                 onPlay={(it) => onPlayList([it], 0)}
               />
             ))}

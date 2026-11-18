@@ -1,5 +1,6 @@
 import type { Item } from "../types";
-import { artistLabel, pickThumb } from "../lib/format";
+import { artistLabel } from "../lib/format";
+import { Art } from "./Art";
 import { Card } from "./Card";
 import { ShelfRow } from "./ShelfRow";
 import { TrackList } from "./TrackList";
@@ -54,7 +55,6 @@ function TopResult({
 }) {
   const actions = useActions();
   const isSong = item.kind === "song" && !!item.video_id;
-  const thumb = pickThumb(item, 360);
   const activate = () => (isSong ? onPlay() : actions.open(item));
   return (
     <div
@@ -71,7 +71,7 @@ function TopResult({
       }}
     >
       <div className={`top-art ${item.kind === "artist" ? "round" : ""}`}>
-        {thumb ? <img src={thumb} alt="" draggable={false} /> : "♪"}
+        <Art thumbnails={item.thumbnails} size={360} eager />
       </div>
       <div className="top-meta">
         <span className="badge inline">{item.kind}</span>
@@ -188,6 +188,7 @@ export function SearchView({
               <Card
                 key={`${item.kind}-${item.browse_id ?? item.title}-${i}`}
                 item={item}
+                eager={i < 8}
                 onPlay={(it) => onPlayList([it], 0)}
               />
             ))}

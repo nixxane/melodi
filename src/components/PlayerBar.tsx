@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { PlayerApi } from "../lib/usePlayer";
 import type { RepeatMode } from "../types";
-import { artistLabel, formatTime, pickThumb } from "../lib/format";
+import { artistLabel, formatTime } from "../lib/format";
+import { Art } from "./Art";
 import { Spinner } from "./Spinner";
 import { useActions } from "../lib/actions";
 
@@ -65,7 +66,6 @@ export function PlayerBar({
 }: Props) {
   const actions = useActions();
   const { track, isPlaying, isLoading, currentTime, volume } = player;
-  const thumb = track ? pickThumb(track, 192) : null;
   const effectiveDuration = player.duration || track?.duration_ms || 0;
   const known = effectiveDuration > 0;
   const maxSec = Math.max(1, effectiveDuration / 1000);
@@ -118,7 +118,7 @@ export function PlayerBar({
 
       <div className="now-playing">
         <div className="now-thumb">
-          {thumb ? <img src={thumb} alt="" draggable={false} /> : <span>♪</span>}
+          <Art thumbnails={track?.thumbnails} size={192} eager />
         </div>
         <div className="now-meta">
           <div className="now-title-row">
