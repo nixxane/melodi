@@ -136,6 +136,12 @@ pnpm tauri build
 
 ---
 
+## License
+
+Melodi is free software: you can redistribute it and/or modify it under the
+terms of the **GNU General Public License v3.0 or later** — see [LICENSE](LICENSE).
+Anything built on Melodi and distributed must stay open source under the same terms.
+
 ## Legal
 
 Melodi is an **independent, unofficial client**. It is not affiliated with,

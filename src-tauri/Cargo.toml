@@ -3,6 +3,8 @@ name = "melodi"
 version = "0.1.0"
 description = "Melodi — an ad-free desktop music client"
 authors = ["Melodi"]
+license = "GPL-3.0-or-later"
+repository = "https://github.com/nixxane/melodi"
 edition = "2021"
 rust-version = "1.77.2"
 
