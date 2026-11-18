@@ -20,8 +20,13 @@ use serde_json::{json, Value};
 /// Can be overridden with the `MELODI_DISCORD_CLIENT_ID` environment variable.
 const CLIENT_ID: &str = "1572617750973780049";
 
-/// Minimum gap between two activity updates.
-const MIN_GAP: Duration = Duration::from_secs(4);
+/// Discord allows about 5 activity updates per 20 seconds. Within that budget
+/// updates go out immediately; beyond it only the newest state is kept.
+const BURST: usize = 5;
+const WINDOW: Duration = Duration::from_secs(20);
+/// Gather changes that arrive together (new track + duration + position)
+/// into one update instead of spending several.
+const SETTLE: Duration = Duration::from_millis(150);
 /// Don't retry connecting to Discord more often than this.
 const RECONNECT_EVERY: Duration = Duration::from_secs(15);
 
@@ -71,24 +76,48 @@ impl Discord {
     }
 }
 
+/// Sliding-window limiter: at most `BURST` sends per `WINDOW`.
+struct Limiter {
+    sent: std::collections::VecDeque<Instant>,
+}
+
+impl Limiter {
+    /// How long until another send is allowed (zero = now).
+    fn wait(&mut self) -> Duration {
+        while self.sent.front().is_some_and(|t| t.elapsed() >= WINDOW) {
+            self.sent.pop_front();
+        }
+        if self.sent.len() < BURST {
+            Duration::ZERO
+        } else {
+            WINDOW.saturating_sub(self.sent.front().unwrap().elapsed())
+        }
+    }
+
+    fn record(&mut self) {
+        self.sent.push_back(Instant::now());
+    }
+}
+
 fn worker(client_id: String, rx: Receiver<Option<Presence>>) {
     let mut conn: Option<Conn> = None;
     let mut last_connect: Option<Instant> = None;
-    let mut last_sent = Instant::now() - MIN_GAP;
+    let mut limiter = Limiter { sent: Default::default() };
     // Latest wanted state not yet delivered. Outer None = nothing pending.
     let mut pending: Option<Option<Presence>> = None;
 
     loop {
-        // Wait for news, but wake up to flush a pending update when allowed.
+        // Idle until news arrives; with something pending, wake when allowed.
         let wait = if pending.is_some() {
-            MIN_GAP.saturating_sub(last_sent.elapsed()).max(Duration::from_millis(50))
+            limiter.wait().max(Duration::from_millis(20))
         } else {
             Duration::from_secs(3600)
         };
         match rx.recv_timeout(wait) {
             Ok(p) => {
                 pending = Some(p);
-                // Coalesce a burst (track skips, seeks) into the newest value.
+                // Let related changes land, then keep only the newest state.
+                std::thread::sleep(SETTLE);
                 while let Ok(p) = rx.try_recv() {
                     pending = Some(p);
                 }
@@ -96,7 +125,7 @@ fn worker(client_id: String, rx: Receiver<Option<Presence>>) {
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => return,
         }
-        if pending.is_none() || last_sent.elapsed() < MIN_GAP {
+        if pending.is_none() || !limiter.wait().is_zero() {
             continue;
         }
 
@@ -113,7 +142,7 @@ fn worker(client_id: String, rx: Receiver<Option<Presence>>) {
 
         let p = pending.take().unwrap();
         let ok = conn.as_mut().is_some_and(|c| c.set_activity(p.as_ref()).is_ok());
-        last_sent = Instant::now();
+        limiter.record();
         if !ok {
             // Discord closed: reconnect next time and resend this state.
             conn = None;
@@ -282,6 +311,51 @@ mod tests {
         let ts = &a["timestamps"];
         assert_eq!(ts["end"].as_u64().unwrap() - ts["start"].as_u64().unwrap(), 150_000);
         assert_eq!(field("a"), "a ");
+    }
+
+    #[test]
+    fn limiter_allows_bursts_then_waits() {
+        let mut l = Limiter { sent: Default::default() };
+        for _ in 0..BURST {
+            assert!(l.wait().is_zero(), "a burst of {BURST} must go out immediately");
+            l.record();
+        }
+        let w = l.wait();
+        assert!(w > Duration::from_secs(19) && w <= WINDOW, "6th update waits for the window: {w:?}");
+    }
+
+    /// Toggles play/pause against the running Discord client and times each
+    /// update end to end (queue → limiter → Discord's reply).
+    #[test]
+    #[ignore = "needs a running Discord client"]
+    fn live_toggle_latency() {
+        let p = Presence {
+            title: "Latency test".into(),
+            artist: "Melodi".into(),
+            album: None,
+            image: None,
+            video_id: None,
+            position_ms: 0,
+            duration_ms: Some(180_000),
+        };
+        let mut c = Conn::open(CLIENT_ID).expect("connect to Discord");
+        let mut l = Limiter { sent: Default::default() };
+        for i in 0..6 {
+            let state = if i % 2 == 0 { Some(&p) } else { None };
+            let t0 = Instant::now();
+            let wait = l.wait();
+            std::thread::sleep(SETTLE + wait);
+            c.set_activity(state).unwrap();
+            l.record();
+            println!(
+                "{} -> on Discord after {:?} (limiter wait {:?})",
+                if state.is_some() { "play " } else { "pause" },
+                t0.elapsed(),
+                wait
+            );
+            std::thread::sleep(Duration::from_millis(600));
+        }
+        c.set_activity(None).unwrap();
     }
 
     /// Shows a real presence in the running Discord client for ~20 s.
