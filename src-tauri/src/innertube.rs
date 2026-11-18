@@ -9,9 +9,6 @@ use serde_json::Value;
 
 use crate::Error;
 
-/// Public InnerTube API key for the WEB_REMIX (music.youtube.com) client.
-/// These keys are shipped inside every official web client and are stable.
-const API_KEY: &str = "AIzaSyC9XL3ZjWddXyaL4xK2TKNMH0Y1QYt7qLQ";
 /// `params` value for YouTube Music's "Songs" search filter.
 const SONGS_FILTER: &str = "EgWKAQIIAWoKEAkQBRAKEAMQBA==";
 const CLIENT_VERSION: &str = "1.20240916.01.00";
@@ -112,7 +109,8 @@ impl InnerTube {
         });
 
         let url = format!(
-            "https://music.youtube.com/youtubei/v1/{endpoint}?key={API_KEY}&prettyPrint=false"
+            // No API key needed: InnerTube identifies the client from `context`.
+            "https://music.youtube.com/youtubei/v1/{endpoint}?prettyPrint=false"
         );
         let resp = self.http.post(&url).json(&body).send().await?;
         let status = resp.status();

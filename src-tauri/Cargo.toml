@@ -1,6 +1,6 @@
 [package]
 name = "melodi"
-version = "0.1.0"
+version = "0.2.0"
 description = "Melodi — an ad-free desktop music client"
 authors = ["Melodi"]
 license = "GPL-3.0-or-later"
@@ -23,6 +23,9 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "process", "io-util", "fs", "sync"] }
 sha2 = "0.10"
 thiserror = "1"
+tauri-plugin-updater = "2.12.0"
+tauri-plugin-process = "2.3.1"
+tauri-plugin-opener = "2.5.5"
 
 [profile.release]
 panic = "abort"

@@ -1652,3 +1652,37 @@ kbd {
   color: var(--accent-ink);
   background: var(--accent);
 }
+
+/* ---------- Update banner ---------- */
+.update-banner {
+  position: fixed;
+  left: 16px;
+  bottom: calc(var(--playerbar-h) + var(--lh) + 18px);
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(720px, 90vw);
+  padding: 4px 6px 4px 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--accent);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.6);
+  animation: toast-in 0.15s steps(3);
+}
+.update-banner .toast-tag {
+  color: var(--info);
+}
+.update-banner.error {
+  border-color: var(--err);
+}
+.update-banner.error .toast-tag {
+  color: var(--err);
+}
+.update-msg {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.update-msg b {
+  color: var(--accent);
+}

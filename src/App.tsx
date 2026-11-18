@@ -24,6 +24,8 @@ import { useShortcuts } from "./lib/useShortcuts";
 import { useMediaSession } from "./lib/useMediaSession";
 import { useRecent } from "./lib/useRecent";
 import { useDiscordPresence } from "./lib/useDiscordPresence";
+import { useUpdater } from "./lib/useUpdater";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { ActionsContext } from "./lib/actions";
 import type { Actions } from "./lib/actions";
 import { artistLabel } from "./lib/format";
@@ -210,6 +212,7 @@ export default function App() {
   });
   useMediaSession(player, { next: queue.next, prev: queue.prev });
   const discord = useDiscordPresence(player);
+  const updater = useUpdater();
 
   // ---- actions ---------------------------------------------------------------
 
@@ -536,6 +539,15 @@ export default function App() {
             onClose={() => setPicking(null)}
           />
         ) : null}
+
+        <UpdateBanner
+          update={updater.update}
+          phase={updater.phase}
+          progress={updater.progress}
+          onInstall={updater.install}
+          onLater={updater.later}
+          onOpenReleases={updater.openReleases}
+        />
 
         <Toasts toasts={toasts} onDismiss={dismiss} />
       </div>

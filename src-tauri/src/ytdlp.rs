@@ -270,7 +270,7 @@ fn friendly_error(stderr: &str) -> String {
     {
         "Network problem \u{2014} check your connection".into()
     } else {
-        "Couldn't load this track".into()
+        GENERIC_FAILURE.into()
     }
 }
 
@@ -304,7 +304,76 @@ pub async fn resolve_stream(
     result
 }
 
+/// Resolve; on an unexplained failure, update yt-dlp (YouTube breaks old
+/// versions regularly) and try once more.
 async fn resolve_uncached(app_data_dir: &Path, video_id: &str) -> Result<StreamInfo, Error> {
+    match resolve_once(app_data_dir, video_id).await {
+        Err(Error::Msg(m)) if m == GENERIC_FAILURE => {
+            if maybe_update(app_data_dir, true).await {
+                resolve_once(app_data_dir, video_id).await
+            } else {
+                Err(Error::Msg(m))
+            }
+        }
+        other => other,
+    }
+}
+
+const GENERIC_FAILURE: &str = "Couldn't load this track";
+
+// ---------------------------------------------------------------------------
+// yt-dlp self-update
+// ---------------------------------------------------------------------------
+
+/// Regular background check interval, and the minimum gap for failure-driven checks.
+const UPDATE_EVERY_SECS: u64 = 2 * 24 * 3600;
+const RETRY_UPDATE_SECS: u64 = 3600;
+static UPDATE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+/// Update the yt-dlp copy Melodi manages (in its app-data folder) with
+/// `yt-dlp -U`, at most every 2 days — or every hour when `after_failure`.
+/// A yt-dlp the user installed themselves is never touched.
+/// Returns true if a newer version was installed.
+pub async fn maybe_update(app_data_dir: &Path, after_failure: bool) -> bool {
+    let Some(bin) = locate_with(app_data_dir) else { return false };
+    let managed = app_data_dir.join("bin");
+    if !bin.starts_with(&managed) {
+        return false;
+    }
+    let _guard = UPDATE_LOCK.lock().await;
+    let stamp = managed.join(".last-update");
+    let last = tokio::fs::read_to_string(&stamp)
+        .await
+        .ok()
+        .and_then(|s| s.trim().parse::<u64>().ok())
+        .unwrap_or(0);
+    let gap = if after_failure { RETRY_UPDATE_SECS } else { UPDATE_EVERY_SECS };
+    if now_secs().saturating_sub(last) < gap {
+        return false;
+    }
+    // Record the attempt first so a failing update doesn't retry in a loop.
+    let _ = tokio::fs::write(&stamp, now_secs().to_string()).await;
+
+    let run = ytdlp_cmd(&bin).args(["-U", "--no-warnings"]).output();
+    match tokio::time::timeout(std::time::Duration::from_secs(180), run).await {
+        Ok(Ok(out)) => {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let updated = out.status.success() && text.contains("Updated yt-dlp to");
+            eprintln!("[melodi] yt-dlp update check: {}", text.lines().last().unwrap_or("").trim());
+            updated
+        }
+        Ok(Err(e)) => {
+            eprintln!("[melodi] yt-dlp update failed: {e}");
+            false
+        }
+        Err(_) => {
+            eprintln!("[melodi] yt-dlp update timed out");
+            false
+        }
+    }
+}
+
+async fn resolve_once(app_data_dir: &Path, video_id: &str) -> Result<StreamInfo, Error> {
     let bin = ensure(app_data_dir).await?;
     let target = format!("https://music.youtube.com/watch?v={video_id}");
 
@@ -334,7 +403,7 @@ async fn resolve_uncached(app_data_dir: &Path, video_id: &str) -> Result<StreamI
     let stdout = String::from_utf8_lossy(&output.stdout);
     let url = stdout.lines().next().unwrap_or("").trim().to_string();
     if url.is_empty() {
-        return Err(Error::Msg("Couldn't load this track".into()));
+        return Err(Error::Msg(GENERIC_FAILURE.into()));
     }
 
     let hls = url.contains("/api/manifest/") || url.contains(".m3u8");

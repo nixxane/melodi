@@ -26,6 +26,18 @@ pub fn run() {
     let lyrics = lyrics::LyricsClient::new().expect("failed to build lyrics client");
 
     tauri::Builder::default()
+        .setup(|app| {
+            // Keep the managed yt-dlp fresh: YouTube regularly breaks old versions.
+            if let Ok(dir) = tauri::Manager::path(app).app_data_dir() {
+                tauri::async_runtime::spawn(async move {
+                    ytdlp::maybe_update(&dir, false).await;
+                });
+            }
+            Ok(())
+        })
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(inner)
         .manage(StreamCache::default())
         .manage(lyrics)

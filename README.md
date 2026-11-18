@@ -9,6 +9,24 @@ no sign-up, no ads** — with an original UI that is *not* a YouTube Music clone
 
 ![Melodi home: recently played, your artists, and shelves in a terminal-style UI](docs/screenshots/home.png)
 
+## Download
+
+**[⬇ Get the latest release](https://github.com/nixxane/melodi/releases/latest)**
+
+| Platform | File | How |
+| --- | --- | --- |
+| **Windows 10/11** | `Melodi_x.y.z_x64-setup.exe` | Run it. No admin rights needed. |
+| **Linux** | `Melodi_x.y.z_amd64.AppImage` | `chmod +x Melodi_*.AppImage`, then run it. |
+| **Debian / Ubuntu** | `Melodi_x.y.z_amd64.deb` | `sudo apt install ./Melodi_*.deb` |
+
+> **"Windows protected your PC"?** The installer isn't code-signed (that costs money),
+> so Windows SmartScreen warns about it. Click **More info → Run anyway**. The source
+> is all here, and every release is built by GitHub Actions from this repository.
+
+Melodi **updates itself**: when a new version is out, it offers to install it in the app
+(the `.deb` version links you to the download page instead). It also keeps its copy of
+yt-dlp up to date in the background, since YouTube regularly breaks older versions.
+
 ## Screenshots
 
 | Artist | Album |
@@ -125,6 +143,18 @@ the `src-tauri/binaries/` folder, or downloads it to your app-data directory.
 pnpm tauri build
 ```
 
+### Publish a release (maintainers)
+
+1. Bump the version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`.
+2. Commit, then tag and push: `git tag v0.2.1 && git push origin v0.2.1`.
+3. GitHub Actions (`.github/workflows/release.yml`) builds the Windows and Linux
+   installers, signs the update bundles, and publishes the Release with `latest.json`,
+   which installed copies check for updates.
+
+Update bundles are signed with the key in the `TAURI_SIGNING_PRIVATE_KEY` /
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repository secrets; the public key is in
+`tauri.conf.json`. Losing the private key means existing installs can no longer update.
+
 ---
 
 ## Configuration
@@ -142,8 +172,9 @@ pnpm tauri build
 - **Live streams** (e.g. 24/7 radio) are HLS-only and can't play in the WebView2
   audio element yet. Regular tracks stream fine. A backend proxy is the planned fix.
 - **Podcasts / episodes / user profiles** aren't supported and are left out of search.
-- YouTube periodically tightens its anti-bot measures. If a track fails to resolve,
-  updating yt-dlp usually fixes it (`yt-dlp -U`).
+- YouTube periodically tightens its anti-bot measures. Melodi updates its own copy of
+  yt-dlp every couple of days, and right away when a track fails to load. If you
+  point it at your own yt-dlp (`MELODI_YTDLP` or `PATH`), keep that one updated yourself.
 - yt-dlp resolves URLs in your region; streams are IP-locked and expire after a
   few hours — a URL is only valid for immediate playback, which is fine for a player.
 
