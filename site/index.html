@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en" data-theme="amber">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Melodi — ad-free music in a terminal-shaped window</title>
+    <meta
+      name="description"
+      content="Melodi is a free, open-source desktop music player for Windows and Linux. Stream YouTube Music's catalog with no account and no ads, in a terminal-style UI with themes, synced lyrics and playlists."
+    />
+    <meta name="theme-color" content="#0b0a08" />
+    <link rel="canonical" href="https://getmelodi.xyz/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://getmelodi.xyz/" />
+    <meta property="og:title" content="Melodi — ad-free music in a terminal-shaped window" />
+    <meta property="og:description" content="Free, open-source music player for Windows and Linux. No account, no ads." />
+    <meta property="og:image" content="https://getmelodi.xyz/img/theme-amber.webp" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23f5a83c'/%3E%3Ctext x='16' y='24' font-family='monospace' font-size='22' font-weight='700' text-anchor='middle' fill='%23120d05'%3E%E2%99%AA%3C/text%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+
+    <script type="importmap">
+      { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+    </script>
+    <script type="module" src="site.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">skip to content</a>
+
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="Melodi home">
+        <span class="brand-mark">♪</span>
+        <span class="brand-name">melodi</span>
+      </a>
+      <nav class="topnav" aria-label="Sections">
+        <a href="#features">features</a>
+        <a href="#themes">themes</a>
+        <a href="#screens">screens</a>
+        <a href="#install">install</a>
+        <a href="#faq">faq</a>
+      </nav>
+      <div class="top-actions">
+        <a class="kbtn" href="https://github.com/nixxane/melodi" rel="noopener">github</a>
+        <a class="kbtn solid" href="#install">download</a>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- ============ HERO ============ -->
+      <section class="hero" id="top">
+        <div class="stage" aria-hidden="true">
+          <canvas id="scene"></canvas>
+          <img class="stage-fallback" src="img/theme-amber.webp" alt="" />
+        </div>
+
+        <div class="hero-copy">
+          <p class="prompt"><span class="ps">$</span> melodi --about</p>
+          <h1>
+            ad-free music<br />
+            in a <span class="accent">terminal-shaped</span><br />
+            window<span class="cursor" aria-hidden="true"></span>
+          </h1>
+          <p class="lede">
+            A free, open-source desktop player for YouTube Music's catalog. No account, no ads, no
+            tracking. Just a fast, keyboard-driven player with synced lyrics, playlists and seven
+            themes.
+          </p>
+
+          <div class="cta">
+            <a class="kbtn solid big" id="dl-primary" href="https://github.com/nixxane/melodi/releases/latest">
+              ↓ download for <span id="dl-os">your OS</span>
+            </a>
+            <a class="kbtn big" href="https://github.com/nixxane/melodi">★ source</a>
+          </div>
+          <p class="meta" id="dl-meta">
+            <span class="ok">●</span> <span id="dl-version">latest</span> · windows 10/11 · linux · GPL-3.0 · free
+          </p>
+        </div>
+
+        <div class="theme-dock" role="radiogroup" aria-label="Try a theme">
+          <span class="dock-label">try a theme →</span>
+          <!-- buttons injected by main.js -->
+        </div>
+      </section>
+
+      <!-- ============ FEATURES ============ -->
+      <section class="section" id="features">
+        <h2 class="section-title"><span>features</span></h2>
+        <div class="features">
+          <article class="panel">
+            <span class="panel-title">no ads, no account</span>
+            <p>
+              Melodi talks to YouTube Music's public backend and plays the audio stream directly.
+              There's no web player, so there's nothing to show ads in. No sign-up, ever.
+            </p>
+          </article>
+          <article class="panel">
+            <span class="panel-title">terminal-style ui</span>
+            <p>
+              Boxed panels, text-drawn seek bars, a vim-style status line and seven themes, from
+              amber phosphor to a light “paper” mode. Optional CRT scanlines.
+            </p>
+          </article>
+          <article class="panel">
+            <span class="panel-title">keyboard first</span>
+            <p>
+              <kbd>space</kbd> play · <kbd>j</kbd>/<kbd>k</kbd> move · <kbd>/</kbd> search ·
+              <kbd>f</kbd> like · <kbd>l</kbd> lyrics · <kbd>1</kbd>-<kbd>3</kbd> views. Media keys
+              work too.
+            </p>
+          </article>
+          <article class="panel">
+            <span class="panel-title">synced lyrics</span>
+            <p>
+              Time-synced lyrics that follow the song and highlight the current line. Click a line
+              to jump there. Falls back to plain lyrics when needed.
+            </p>
+          </article>
+          <article class="panel">
+            <span class="panel-title">artists, albums, radio</span>
+            <p>
+              Full artist pages, albums and playlists, plus radio from any song or artist. Autoplay
+              keeps similar music going when your queue ends.
+            </p>
+          </article>
+          <article class="panel">
+            <span class="panel-title">yours, locally</span>
+            <p>
+              Liked songs, playlists, history and settings live on your computer, not in an account.
+              Hide artists you played by accident, clear anything any time.
+            </p>
+          </article>
+          <article class="panel">
+            <span class="panel-title">discord presence</span>
+            <p>
+              Shows “Listening to &lt;artist&gt;” with the cover and a progress bar on your Discord
+              profile. One toggle to turn it off.
+            </p>
+          </article>
+          <article class="panel">
+            <span class="panel-title">updates itself</span>
+            <p>
+              New versions are offered in the app and install with one click, signed and verified.
+              Its streaming engine (yt-dlp) stays current in the background.
+            </p>
+          </article>
+          <article class="panel">
+            <span class="panel-title">tiny &amp; native</span>
+            <p>
+              Built with Rust and Tauri: the Windows installer is about 2&nbsp;MB and it uses your
+              system's web view instead of shipping a whole browser.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- ============ THEMES ============ -->
+      <section class="section" id="themes">
+        <h2 class="section-title"><span>themes</span></h2>
+        <p class="section-sub">Seven built-in themes. Pick one here and the whole page (and the 3D screen above) follows.</p>
+        <div class="theme-gallery">
+          <figure class="panel shot-large">
+            <span class="panel-title" id="theme-caption">amber</span>
+            <img id="theme-shot" src="img/theme-amber.webp" alt="Melodi home screen in the amber theme" width="1440" height="900" loading="lazy" />
+          </figure>
+          <div class="theme-list" role="radiogroup" aria-label="Theme">
+            <!-- injected by main.js -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCREENS ============ -->
+      <section class="section" id="screens">
+        <h2 class="section-title"><span>screens</span></h2>
+        <div class="gallery">
+          <figure class="panel">
+            <span class="panel-title">artist</span>
+            <button class="zoom" data-src="img/artist.png" aria-label="Enlarge artist screenshot">
+              <img src="img/artist.png" alt="Artist page with top songs, albums and artist radio" loading="lazy" width="1440" height="900" />
+            </button>
+          </figure>
+          <figure class="panel">
+            <span class="panel-title">album</span>
+            <button class="zoom" data-src="img/album.png" aria-label="Enlarge album screenshot">
+              <img src="img/album.png" alt="Album page with full track list" loading="lazy" width="1440" height="900" />
+            </button>
+          </figure>
+          <figure class="panel">
+            <span class="panel-title">synced lyrics</span>
+            <button class="zoom" data-src="img/lyrics.png" aria-label="Enlarge lyrics screenshot">
+              <img src="img/lyrics.png" alt="Time-synced lyrics following playback" loading="lazy" width="1440" height="900" />
+            </button>
+          </figure>
+          <figure class="panel">
+            <span class="panel-title">search</span>
+            <button class="zoom" data-src="img/search.png" aria-label="Enlarge search screenshot">
+              <img src="img/search.png" alt="Search results with top result and song list" loading="lazy" width="1440" height="900" />
+            </button>
+          </figure>
+          <figure class="panel">
+            <span class="panel-title">liked songs</span>
+            <button class="zoom" data-src="img/liked.webp" aria-label="Enlarge liked songs screenshot">
+              <img src="img/liked.webp" alt="Liked songs page" loading="lazy" width="1440" height="900" />
+            </button>
+          </figure>
+          <figure class="panel">
+            <span class="panel-title">settings</span>
+            <button class="zoom" data-src="img/settings.webp" aria-label="Enlarge settings screenshot">
+              <img src="img/settings.webp" alt="Settings page with theme picker" loading="lazy" width="1440" height="900" />
+            </button>
+          </figure>
+          <figure class="panel">
+            <span class="panel-title">your playlists</span>
+            <button class="zoom" data-src="img/playlist.png" aria-label="Enlarge playlist screenshot">
+              <img src="img/playlist.png" alt="A local playlist" loading="lazy" width="1440" height="900" />
+            </button>
+          </figure>
+          <figure class="panel">
+            <span class="panel-title">queue</span>
+            <button class="zoom" data-src="img/queue.png" aria-label="Enlarge queue screenshot">
+              <img src="img/queue.png" alt="Queue with now playing, up next and autoplay" loading="lazy" width="1440" height="900" />
+            </button>
+          </figure>
+        </div>
+      </section>
+
+      <!-- ============ INSTALL ============ -->
+      <section class="section" id="install">
+        <h2 class="section-title"><span>install</span></h2>
+        <div class="install">
+          <article class="panel os" data-os="windows">
+            <span class="panel-title">windows 10 / 11</span>
+            <a class="kbtn solid" data-asset="exe" href="https://github.com/nixxane/melodi/releases/latest">↓ setup .exe</a>
+            <ol>
+              <li>Download and run the installer. No admin rights needed.</li>
+              <li>
+                If you see <em>“Windows protected your PC”</em>, click
+                <b>More info → Run anyway</b>. The installer isn't code-signed (that costs money);
+                every release is built in the open by GitHub Actions.
+              </li>
+            </ol>
+          </article>
+          <article class="panel os" data-os="linux">
+            <span class="panel-title">linux</span>
+            <a class="kbtn solid" data-asset="appimage" href="https://github.com/nixxane/melodi/releases/latest">↓ .AppImage</a>
+            <pre class="term"><span class="ps">$</span> chmod +x Melodi_*.AppImage
+<span class="ps">$</span> ./Melodi_*.AppImage</pre>
+            <p class="dim">Runs on any distro and updates itself.</p>
+          </article>
+          <article class="panel os" data-os="debian">
+            <span class="panel-title">debian / ubuntu</span>
+            <a class="kbtn solid" data-asset="deb" href="https://github.com/nixxane/melodi/releases/latest">↓ .deb</a>
+            <pre class="term"><span class="ps">$</span> sudo apt install ./Melodi_*.deb</pre>
+            <p class="dim">Update prompts link to the download page.</p>
+          </article>
+        </div>
+        <p class="section-sub">
+          macOS isn't supported yet. All builds:
+          <a href="https://github.com/nixxane/melodi/releases">github.com/nixxane/melodi/releases</a>
+        </p>
+      </section>
+
+      <!-- ============ SHORTCUTS ============ -->
+      <section class="section" id="keys">
+        <h2 class="section-title"><span>keys</span></h2>
+        <div class="keys panel">
+          <span class="panel-title">cheat sheet</span>
+          <dl>
+            <div><dt><kbd>space</kbd></dt><dd>play / pause</dd></div>
+            <div><dt><kbd>← →</kbd></dt><dd>seek 5 s</dd></div>
+            <div><dt><kbd>⇧ ← →</kbd></dt><dd>previous / next</dd></div>
+            <div><dt><kbd>↑ ↓</kbd></dt><dd>volume</dd></div>
+            <div><dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>move through lists</dd></div>
+            <div><dt><kbd>/</kbd></dt><dd>search</dd></div>
+            <div><dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>home / search / queue</dd></div>
+            <div><dt><kbd>f</kbd></dt><dd>like current song</dd></div>
+            <div><dt><kbd>l</kbd></dt><dd>lyrics</dd></div>
+            <div><dt><kbd>m</kbd></dt><dd>mute</dd></div>
+            <div><dt><kbd>,</kbd></dt><dd>settings</dd></div>
+            <div><dt><kbd>⌫</kbd></dt><dd>back</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <!-- ============ FAQ ============ -->
+      <section class="section" id="faq">
+        <h2 class="section-title"><span>faq</span></h2>
+        <div class="faq">
+          <details class="panel">
+            <summary>Is it really free? What's the catch?</summary>
+            <p>
+              No catch. Melodi is open-source under the GPL-3.0 license, has no ads and collects
+              nothing. If you like it, you can <a href="https://ko-fi.com/nix100">buy me a coffee on Ko-fi</a>.
+            </p>
+          </details>
+          <details class="panel">
+            <summary>Do I need a YouTube or Google account?</summary>
+            <p>No. Search, browsing and playback all work without signing in to anything.</p>
+          </details>
+          <details class="panel">
+            <summary>How does it play music without ads?</summary>
+            <p>
+              Melodi fetches song information from YouTube Music's public backend and uses
+              <a href="https://github.com/yt-dlp/yt-dlp">yt-dlp</a> to get the direct audio stream,
+              which plays in the app. It never loads YouTube's web player, so there are simply no ads
+              to show. It doesn't block anything, and it doesn't download songs.
+            </p>
+          </details>
+          <details class="panel">
+            <summary>Why does Windows warn about the installer?</summary>
+            <p>
+              Code-signing certificates cost money, and unsigned apps get a SmartScreen warning until
+              enough people have installed them. Click <b>More info → Run anyway</b>. You can read
+              every line of the source and see each release being built on GitHub.
+            </p>
+          </details>
+          <details class="panel">
+            <summary>Where is my data stored?</summary>
+            <p>
+              Only on your computer: liked songs, playlists, history and settings are kept locally.
+              Lyrics lookups send just the song title, artist and length to
+              <a href="https://lrclib.net">LRCLIB</a>.
+            </p>
+          </details>
+          <details class="panel">
+            <summary>A song won't play. What now?</summary>
+            <p>
+              YouTube changes things now and then. Melodi updates its yt-dlp automatically and
+              retries, so it usually fixes itself. If it doesn't,
+              <a href="https://github.com/nixxane/melodi/issues">open an issue</a>.
+            </p>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="statusline">
+        <span class="sl-mode">MELODI</span>
+        <span class="sl-seg">GPL-3.0-or-later</span>
+        <a class="sl-seg" href="https://github.com/nixxane/melodi">github</a>
+        <a class="sl-seg" href="https://github.com/nixxane/melodi/releases">releases</a>
+        <a class="sl-seg" href="https://ko-fi.com/nix100">♥ ko-fi</a>
+        <span class="sl-fill"></span>
+        <span class="sl-seg dim">not affiliated with YouTube or Google</span>
+      </div>
+    </footer>
+
+    <dialog id="lightbox" aria-label="Screenshot">
+      <img alt="" />
+      <button class="kbtn" id="lightbox-close">close · esc</button>
+    </dialog>
+  </body>
+</html>

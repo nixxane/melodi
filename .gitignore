@@ -17,3 +17,6 @@ src-tauri/binaries/*.exe
 src-tauri/binaries/yt-dlp*
 design-preview.png
 POLISH_PLAN.md
+
+# Local tooling
+.claude/

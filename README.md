@@ -13,7 +13,7 @@ no sign-up, no ads** — with an original UI that is *not* a YouTube Music clone
 
 ## Download
 
-**[⬇ Get the latest release](https://github.com/nixxane/melodi/releases/latest)**
+**[⬇ Get the latest release](https://github.com/nixxane/melodi/releases/latest)** · 🌐 **[getmelodi.xyz](https://getmelodi.xyz)**
 
 | Platform | File | How |
 | --- | --- | --- |
