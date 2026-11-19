@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><style>
+.bg{fill:var(--bg,#0b0a08)}.bg2{fill:var(--bg-2,#12100c)}
+.ln{fill:none;stroke:var(--line,#3b3325)}
+.a{fill:var(--accent,#f5a83c)}.as{fill:none;stroke:var(--accent,#f5a83c)}.ao{stroke:var(--accent,#f5a83c)}
+.d{fill:var(--accent-dim,#8a6226)}.ds{fill:none;stroke:var(--accent-dim,#8a6226)}
+.f{fill:var(--fg,#e8dfcc)}.fs{fill:none;stroke:var(--fg,#e8dfcc)}
+.k{fill:var(--accent-ink,#120d05)}.fa{fill:var(--faint,#64594a)}
+.r{stroke-linecap:round;stroke-linejoin:round}
+.scan{fill:url(#scan);pointer-events:none}
+</style><defs>
+<filter id="glow" x="-25%" y="-25%" width="150%" height="150%"><feGaussianBlur stdDeviation="2.2" result="b"/><feComponentTransfer in="b" result="b2"><feFuncA type="linear" slope=".6"/></feComponentTransfer><feMerge><feMergeNode in="b2"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1.4" style="fill:var(--scanline,rgba(0,0,0,.18))"/></pattern>
+<clipPath id="tileclip"><rect width="128" height="128" rx="24"/></clipPath>
+</defs><rect class="bg" width="128" height="128" rx="24"/><g filter="url(#glow)"><g transform="translate(2 0)"><rect class="a" x="63" y="22" width="13" height="66" rx="6.5"/><rect class="d" x="66.5" y="30" width="6" height="38" rx="3"/><path class="a" d="M71 24C90 28 104 42 98 66C95 52 86 45 73 42Z"/><ellipse class="a" cx="50" cy="88" rx="24" ry="18" transform="rotate(-20 50 88)"/><circle class="k" cx="44" cy="88" r="3.2"/><circle class="k" cx="60" cy="82" r="3.2"/><path class="k" d="M51 91.5l4-1.5l-1 4z"/><circle class="d" cx="39" cy="96" r="4"/><circle class="d" cx="66" cy="90" r="4"/></g></g><rect class="ln" x="7.5" y="7.5" width="113" height="113" rx="17" stroke-width="1.5"/><rect class="scan" width="128" height="128" rx="24"/></svg>
