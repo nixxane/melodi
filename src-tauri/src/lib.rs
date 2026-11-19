@@ -30,6 +30,12 @@ pub fn run() {
     let lyrics = lyrics::LyricsClient::new().expect("failed to build lyrics client");
 
     tauri::Builder::default()
+        // Must be registered first: a second launch (taskbar, Start menu,
+        // shortcut) hands off to the running Melodi and exits, which then
+        // brings its window back from the tray.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            tray::show_main(app);
+        }))
         .manage(tray::TrayState::default())
         .on_window_event(tray::on_window_event)
         .setup(|app| {
