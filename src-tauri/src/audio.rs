@@ -5,7 +5,8 @@
 //! played through a tiny HTTP server on 127.0.0.1 that
 //!   * forwards range requests to YouTube and adds CORS headers,
 //!   * downloads the whole song into a disk cache in the background, and
-//!   * serves cached songs straight from disk (instant start, works offline).
+//!   * serves cached songs straight from disk (instant start, works offline),
+//!   * turns live broadcasts (HLS) into one endless AAC stream (see live.rs).
 //!
 //! Requests must carry a random per-run key, so other local programs and web
 //! pages can't use the server.
@@ -22,6 +23,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
 use crate::innertube::InnerTube;
+use crate::live::{LiveError, LiveFeed};
 use crate::ytdlp::{self, StreamCache, StreamInfo};
 use crate::Error;
 
@@ -39,7 +41,8 @@ const DEFAULT_LIMIT: u64 = 1024 * 1024 * 1024;
 pub struct Prepared {
     /// URL for the <audio> element.
     pub url: String,
-    pub hls: bool,
+    /// A live broadcast: endless, not seekable, never cached.
+    pub live: bool,
     /// YouTube's loudness for the song in dB relative to its reference level
     /// (positive = louder than the target). None if unknown.
     pub loudness_db: Option<f32>,
@@ -150,7 +153,7 @@ impl AudioServer {
                 Some(l) => Some(l),
                 None => inner.fetch_loudness(video_id, Duration::from_millis(1200)).await,
             };
-            return Ok(Prepared { url: self.url_for(video_id), hls: false, loudness_db, cached: true });
+            return Ok(Prepared { url: self.url_for(video_id), live: false, loudness_db, cached: true });
         }
 
         let resolve = inner.resolve(video_id, force);
@@ -163,9 +166,10 @@ impl AudioServer {
         let (info, loudness_db) = tokio::join!(resolve, loud);
         let info = info?;
         if info.hls {
-            return Ok(Prepared { url: info.url, hls: true, loudness_db, cached: false });
+            let url = format!("http://127.0.0.1:{}/live/{video_id}?k={}", self.port, self.key);
+            return Ok(Prepared { url, live: true, loudness_db, cached: false });
         }
-        Ok(Prepared { url: self.url_for(video_id), hls: false, loudness_db, cached: false })
+        Ok(Prepared { url: self.url_for(video_id), live: false, loudness_db, cached: false })
     }
 
     /// Download the song into the cache ahead of time (used for "up next").
@@ -411,7 +415,10 @@ async fn handle(mut sock: TcpStream, inner: &Arc<Inner>, key: &str) -> std::io::
     if req.method == "OPTIONS" {
         return simple(&mut sock, "204 No Content").await;
     }
-    let id = req.path.strip_prefix("/a/").unwrap_or("");
+    let (live, id) = match req.path.strip_prefix("/live/") {
+        Some(id) => (true, id),
+        None => (false, req.path.strip_prefix("/a/").unwrap_or("")),
+    };
     let key_ok = req.query.split('&').any(|p| p == format!("k={key}"));
     if !key_ok || !valid_id(id) {
         return simple(&mut sock, "403 Forbidden").await;
@@ -419,6 +426,10 @@ async fn handle(mut sock: TcpStream, inner: &Arc<Inner>, key: &str) -> std::io::
     let head_only = req.method == "HEAD";
     if req.method != "GET" && !head_only {
         return simple(&mut sock, "405 Method Not Allowed").await;
+    }
+
+    if live {
+        return serve_live(&mut sock, inner, id, head_only).await;
     }
 
     // 1. From disk.
@@ -435,6 +446,53 @@ async fn handle(mut sock: TcpStream, inner: &Arc<Inner>, key: &str) -> std::io::
     }
     inner.clone().download_in_background(id.to_string(), info.url.clone());
     serve_upstream(&mut sock, inner, id, info.url, req.range, head_only).await
+}
+
+/// Follow a live broadcast and stream it as one endless AAC response.
+async fn serve_live(sock: &mut TcpStream, inner: &Arc<Inner>, id: &str, head_only: bool) -> std::io::Result<()> {
+    let head = format!(
+        "HTTP/1.1 200 OK\r\n{CORS}Content-Type: audio/aac\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n"
+    );
+    if head_only {
+        return sock.write_all(head.as_bytes()).await;
+    }
+    let url = match inner.resolve(id, false).await {
+        Ok(info) if info.hls => info.url,
+        _ => return simple(sock, "502 Bad Gateway").await,
+    };
+    let mut feed = LiveFeed::new(inner.http.clone(), url);
+    let mut sent_head = false;
+    // Re-resolves allowed in a row before giving up (reset by every chunk).
+    let mut refreshes = 0;
+    loop {
+        match feed.next_chunk(Duration::from_secs(30)).await {
+            Ok(Some(chunk)) => {
+                refreshes = 0;
+                if !sent_head {
+                    sock.write_all(head.as_bytes()).await?;
+                    sent_head = true;
+                }
+                // Blocks while the player is paused; errors once it lets go.
+                sock.write_all(&chunk).await?;
+            }
+            Ok(None) => break,
+            Err(LiveError::Expired) if refreshes < 2 => {
+                refreshes += 1;
+                match inner.resolve(id, true).await {
+                    Ok(info) if info.hls => feed.set_url(info.url),
+                    _ => break,
+                }
+            }
+            Err(e) => {
+                eprintln!("[melodi] live stream {id} stopped: {e:?}");
+                break;
+            }
+        }
+    }
+    if !sent_head {
+        return simple(sock, "502 Bad Gateway").await;
+    }
+    Ok(())
 }
 
 /// Work out the byte span to send. Returns (start, end inclusive, partial).

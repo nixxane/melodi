@@ -191,12 +191,14 @@ fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
-/// Pull `expire=<unix ts>` out of a googlevideo URL.
+/// Pull the expiry (unix ts) out of a googlevideo URL: `?expire=N` for
+/// songs, `/expire/N/` in the path for live playlists.
 fn expire_of(url: &str) -> Option<u64> {
-    let query = url.split_once('?')?.1;
+    let (path, query) = url.split_once('?').unwrap_or((url, ""));
     query
         .split('&')
         .find_map(|kv| kv.strip_prefix("expire="))
+        .or_else(|| path.split_once("/expire/").map(|(_, rest)| rest.split('/').next().unwrap_or("")))
         .and_then(|v| v.parse().ok())
 }
 
@@ -242,7 +244,13 @@ impl StreamCache {
 /// Map raw yt-dlp stderr to a short, user-facing message.
 fn friendly_error(stderr: &str) -> String {
     let s = stderr.to_lowercase();
-    if s.contains("age-restricted") || s.contains("confirm your age") || s.contains("age restricted")
+    if s.contains("live event will begin") || s.contains("premieres in") || s.contains("is upcoming") {
+        "This live stream hasn't started yet".into()
+    } else if s.contains("live stream recording is not available") {
+        "This live stream has ended".into()
+    } else if s.contains("not a bot") {
+        "YouTube is blocking requests for now \u{2014} try again in a while".into()
+    } else if s.contains("age-restricted") || s.contains("confirm your age") || s.contains("age restricted")
     {
         "This track is age-restricted".into()
     } else if s.contains("not available in your country")
@@ -474,6 +482,15 @@ mod tests {
             expire_of("https://x/videoplayback?a=1&expire=123&b=2"),
             Some(123)
         );
+        assert_eq!(
+            expire_of("https://m/api/manifest/hls_playlist/expire/1795085390/ei/x/index.m3u8"),
+            Some(1795085390)
+        );
+        assert_eq!(
+            friendly_error("ERROR: [youtube] x: This live stream recording is not available."),
+            "This live stream has ended"
+        );
+        assert!(friendly_error("ERROR: Sign in to confirm you\u{2019}re not a bot.").starts_with("YouTube is blocking"));
         assert!(truncate_lines("h\u{e9}llo\nw\u{f6}rld\n", 2).len() <= 2);
     }
 

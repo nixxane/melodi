@@ -31,6 +31,8 @@ export interface PlayerApi {
   isLoading: boolean;
   currentTime: number;
   duration: number;
+  /** The current track is a live broadcast (no duration, no seeking). */
+  isLive: boolean;
   volume: number;
   /** Bumped on every explicit seek (for the OS media session). */
   seekTick: number;
@@ -63,6 +65,8 @@ export function usePlayer(callbacks: PlayerCallbacks): PlayerApi {
   const loadedId = useRef<string | null>(null);
   /** loudness of the loaded song, for re-applying normalization */
   const loudness = useRef<number | null>(null);
+  /** The loaded stream is live. */
+  const liveRef = useRef(false);
   /** position to resume from when the stream isn't loaded yet */
   const pendingStart = useRef(0);
   const retriedToken = useRef(-1);
@@ -86,6 +90,7 @@ export function usePlayer(callbacks: PlayerCallbacks): PlayerApi {
   const [stalled, setStalled] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isLive, setIsLive] = useState(false);
   const [seekTick, setSeekTick] = useState(0);
   const [volume, setVolumeState] = useState<number>(() => {
     try {
@@ -103,6 +108,12 @@ export function usePlayer(callbacks: PlayerCallbacks): PlayerApi {
       stallTimer.current = null;
     }
     setStalled(false);
+  };
+
+  const setLive = (live: boolean) => {
+    liveRef.current = live;
+    setIsLive(live);
+    if (live) setDuration(0);
   };
 
   const fail = (message: string, item: Item) => {
@@ -141,7 +152,7 @@ export function usePlayer(callbacks: PlayerCallbacks): PlayerApi {
     fadeIn: number
   ) => {
     d.el.src = url;
-    if (startAt > 0) {
+    if (startAt > 0 && !liveRef.current) {
       const seekTo = () => {
         if (token === playToken.current) d.el.currentTime = startAt;
       };
@@ -191,7 +202,7 @@ export function usePlayer(callbacks: PlayerCallbacks): PlayerApi {
         }
       });
       const dur = () => {
-        if (isFinite(a.duration)) setDuration(a.duration * 1000);
+        if (isFinite(a.duration) && !liveRef.current) setDuration(a.duration * 1000);
       };
       on("durationchange", dur);
       on("loadedmetadata", dur);
@@ -237,7 +248,7 @@ export function usePlayer(callbacks: PlayerCallbacks): PlayerApi {
           prepareStream(item.video_id ?? "", true)
             .then((info) => {
               if (token !== playToken.current) return;
-              if (info.hls) throw "Live streams aren't supported yet";
+              setLive(info.live);
               a.removeAttribute("src");
               return startPlayback(d, info.url, resumeAt, item, token, 0);
             })
@@ -284,19 +295,17 @@ export function usePlayer(callbacks: PlayerCallbacks): PlayerApi {
     setTrack(item);
     setCurrentTime(startAt);
     setDuration(item.duration_ms ?? 0);
+    setLive(false);
     setResolving(true);
     clearStall();
 
     try {
       const info = await prepareStream(item.video_id ?? "");
       if (token !== playToken.current) return;
-      if (info.hls) {
-        fail("Live streams aren't supported yet", item);
-        return;
-      }
       loudness.current = info.loudness_db;
+      setLive(info.live);
 
-      if (crossfading && !outgoing.el.paused) {
+      if (crossfading && !outgoing.el.paused && !info.live) {
         // Switch decks: the new song fades in while the old one fades out.
         const left = isFinite(outgoing.el.duration) ? outgoing.el.duration - outgoing.el.currentTime : x;
         const secs = Math.max(0.5, Math.min(x, left));
@@ -331,6 +340,7 @@ export function usePlayer(callbacks: PlayerCallbacks): PlayerApi {
     setTrack(item);
     setCurrentTime(position);
     setDuration(item.duration_ms ?? 0);
+    setLive(false);
     setResolving(false);
     setIsPlaying(false);
     cancelXfade();
@@ -345,6 +355,10 @@ export function usePlayer(callbacks: PlayerCallbacks): PlayerApi {
     if (loadedId.current !== item.video_id) {
       // Restored session or failed load: resolve lazily, then resume.
       play(item, { startAt: pendingStart.current });
+    } else if (a.paused && liveRef.current) {
+      // Live: reconnect so playback picks up at the live edge, not where
+      // the broadcast was when we paused.
+      play(item);
     } else if (a.paused) {
       engine.resume();
       a.play().catch(() => {});
@@ -362,13 +376,18 @@ export function usePlayer(callbacks: PlayerCallbacks): PlayerApi {
   }, []);
 
   const replay = useCallback(() => {
+    const item = trackRef.current;
+    if (liveRef.current && item) {
+      play(item);
+      return;
+    }
     const a = deck().el;
     earlyEnded.current = -1;
     a.currentTime = 0;
     engine.resume();
     a.play().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [play]);
 
   const getCurrentTime = useCallback(() => {
     const item = trackRef.current;
@@ -379,7 +398,7 @@ export function usePlayer(callbacks: PlayerCallbacks): PlayerApi {
 
   const seek = useCallback((t: number) => {
     const item = trackRef.current;
-    if (!item || !isFinite(t)) return;
+    if (!item || !isFinite(t) || liveRef.current) return;
     const clamped = Math.max(0, t);
     if (loadedId.current === item.video_id) {
       cancelXfade();
@@ -440,6 +459,7 @@ export function usePlayer(callbacks: PlayerCallbacks): PlayerApi {
     isLoading: resolving || stalled,
     currentTime,
     duration,
+    isLive,
     volume,
     seekTick,
     play,

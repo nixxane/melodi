@@ -1,6 +1,6 @@
 [package]
 name = "melodi"
-version = "0.5.0"
+version = "0.6.0"
 description = "Melodi — an ad-free desktop music client"
 authors = ["Melodi"]
 license = "GPL-3.0-or-later"

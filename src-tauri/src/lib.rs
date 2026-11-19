@@ -3,6 +3,7 @@ mod commands;
 mod discord;
 mod tray;
 mod innertube;
+mod live;
 mod lyrics;
 mod spotify;
 mod ytdlp;

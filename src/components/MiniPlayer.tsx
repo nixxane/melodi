@@ -18,9 +18,9 @@ const CELLS = 22;
 
 /** Compact always-on-top player. Drag anywhere on the background to move it. */
 export function MiniPlayer({ player, canNext, canPrev, onNext, onPrev, onExpand, sleepLabel }: Props) {
-  const { track, isPlaying, isLoading, currentTime } = player;
-  const dur = (player.duration || track?.duration_ms || 0) / 1000;
-  const filled = dur > 0 ? Math.min(CELLS, Math.round((currentTime / dur) * CELLS)) : 0;
+  const { track, isPlaying, isLoading, currentTime, isLive } = player;
+  const dur = isLive ? 0 : (player.duration || track?.duration_ms || 0) / 1000;
+  const filled = isLive ? CELLS : dur > 0 ? Math.min(CELLS, Math.round((currentTime / dur) * CELLS)) : 0;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -68,11 +68,13 @@ export function MiniPlayer({ player, canNext, canPrev, onNext, onPrev, onExpand,
           <button className="kbtn" onClick={onNext} disabled={!canNext} aria-label="Next">
             ▶|
           </button>
-          <button className="mini-bar" onClick={seekFromBar} disabled={!track} aria-label="Seek" tabIndex={-1}>
+          <button className="mini-bar" onClick={seekFromBar} disabled={!track || isLive} aria-label="Seek" tabIndex={-1}>
             <span className="fill">{"━".repeat(filled)}</span>
             <span className="rest">{"─".repeat(CELLS - filled)}</span>
           </button>
-          <span className="mini-time">{formatTime(currentTime * 1000)}</span>
+          <span className={`mini-time ${isLive ? "live-badge" : ""}`}>
+            {isLive ? "● live" : formatTime(currentTime * 1000)}
+          </span>
         </div>
       </div>
     </div>

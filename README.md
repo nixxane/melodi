@@ -7,7 +7,6 @@ It streams YouTube Music's catalog through YouTube's public backend — **no acc
 no sign-up, no ads** — with an original UI that is *not* a YouTube Music clone.
 
 > **Status:** functional MVP. Search + browse + streaming playback work today.
-> Live streams (HLS) are on the roadmap.
 
 ![Melodi home: recently played, your artists, and shelves in a terminal-style UI](docs/screenshots/home.png)
 
@@ -84,6 +83,7 @@ direct stream.
 - 🔎 **Search** songs, artists, albums (no account needed) with a top result, recent searches and skeleton loading
 - 👤 **Artist pages** — top songs, albums, singles, videos, "fans might also like", plus shuffle and artist radio
 - 💿 **Album & playlist pages** — full track lists (playlists up to ~300 tracks), shuffle, radio
+- 🔴 **Live streams** — 24/7 radio and live sets (e.g. lofi streams) play like any other track. Pausing and playing again jumps back to live. The local proxy follows YouTube's HLS playlist and joins the segments into one audio stream.
 - 📻 **Radio** — start a radio of similar songs from any track (right-click → start radio, or `≈` in the player)
 - 🎤 **Lyrics** (`L`) — time-synced, auto-scrolling lyrics from [LRCLIB](https://lrclib.net) (click a line to jump there), falling back to YouTube Music's plain lyrics. Lookups send only the track title, artist and length.
 - 🎮 **Discord Rich Presence** — shows "Listening to <artist>" with the song, cover art, progress bar and a YouTube Music button. Talks only to your local Discord client; toggle with `discord:on/off` in the status bar.
@@ -184,8 +184,9 @@ Update bundles are signed with the key in the `TAURI_SIGNING_PRIVATE_KEY` /
 
 ## Known limitations (honest notes)
 
-- **Live streams** (e.g. 24/7 radio) are HLS-only and can't play in the WebView2
-  audio element yet. Regular tracks stream fine. A backend proxy is the planned fix.
+- **Live streams** play at the live edge only: you can't rewind into the broadcast,
+  and they aren't saved to the offline cache. Streams that have no audio-only
+  format (rare) won't play.
 - **Podcasts / episodes / user profiles** aren't supported and are left out of search.
 - YouTube periodically tightens its anti-bot measures. Melodi updates its own copy of
   yt-dlp every couple of days, and right away when a track fails to load. If you

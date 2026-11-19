@@ -2112,3 +2112,19 @@ kbd {
   color: var(--dim);
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- Live streams ---------- */
+.seek-time.live-badge,
+.mini-time.live-badge {
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  animation: live-pulse 2s ease-in-out infinite;
+}
+.seek-track.live .head {
+  color: var(--accent);
+}
+@keyframes live-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}

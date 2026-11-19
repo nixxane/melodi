@@ -72,8 +72,8 @@ export function PlayerBar({
   onLyrics,
 }: Props) {
   const actions = useActions();
-  const { track, isPlaying, isLoading, currentTime, volume } = player;
-  const effectiveDuration = player.duration || track?.duration_ms || 0;
+  const { track, isPlaying, isLoading, currentTime, volume, isLive } = player;
+  const effectiveDuration = isLive ? 0 : player.duration || track?.duration_ms || 0;
   const known = effectiveDuration > 0;
   const maxSec = Math.max(1, effectiveDuration / 1000);
 
@@ -88,7 +88,8 @@ export function PlayerBar({
 
   const seekRef = useRef<HTMLDivElement>(null);
   const cols = useCols(seekRef);
-  const filled = track ? Math.min(cols - 1, Math.round(frac * (cols - 1))) : 0;
+  // Live: the bar always sits at the live edge.
+  const filled = !track ? 0 : isLive ? cols - 1 : Math.min(cols - 1, Math.round(frac * (cols - 1)));
 
   const finishDrag = () => {
     if (!dragging.current) return;
@@ -115,7 +116,13 @@ export function PlayerBar({
   const repeatLabel =
     repeat === "off" ? "Repeat: off" : repeat === "all" ? "Repeat: all" : "Repeat: one";
   const volCells = Math.round(volume * VOL_CELLS);
-  const panelTitle = !track ? "idle" : isLoading ? "loading" : isPlaying ? "playing" : "paused";
+  const panelTitle = !track
+    ? "idle"
+    : isLoading
+      ? "loading"
+      : isPlaying
+        ? isLive ? "live" : "playing"
+        : "paused";
 
   return (
     <footer className="playerbar panel" ref={barRef}>
@@ -213,7 +220,7 @@ export function PlayerBar({
 
         <div className="seek">
           <span className="seek-time">{formatTime(shown * 1000)}</span>
-          <div className="ascii-range seek-track" ref={seekRef}>
+          <div className={`ascii-range seek-track ${isLive ? "live" : ""}`} ref={seekRef}>
             <div className="ascii-bar" aria-hidden="true">
               <span className="fill">{"━".repeat(filled)}</span>
               <span className="head">{track ? "●" : "─"}</span>
@@ -230,7 +237,7 @@ export function PlayerBar({
               max={maxSec}
               step={0.1}
               value={Math.min(shown, maxSec)}
-              disabled={!track}
+              disabled={!track || isLive}
               aria-label="Seek"
               onPointerDown={() => {
                 dragging.current = true;
@@ -260,7 +267,13 @@ export function PlayerBar({
               onPointerLeave={() => setHover(null)}
             />
           </div>
-          <span className="seek-time">{known ? formatTime(effectiveDuration) : "--:--"}</span>
+          {isLive ? (
+            <span className="seek-time live-badge" title="Live broadcast: pausing and playing again jumps back to live">
+              ● live
+            </span>
+          ) : (
+            <span className="seek-time">{known ? formatTime(effectiveDuration) : "--:--"}</span>
+          )}
         </div>
       </div>
 

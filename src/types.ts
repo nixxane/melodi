@@ -85,7 +85,8 @@ export interface StreamInfo {
 /** A song made ready to play through the local audio proxy. */
 export interface PreparedStream {
   url: string;
-  hls: boolean;
+  /** A live broadcast: endless, not seekable, never cached. */
+  live: boolean;
   /** YouTube loudness in dB above its reference level; null if unknown. */
   loudness_db: number | null;
   /** Already in the offline cache. */
