@@ -362,7 +362,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "needs a running Discord client and network"]
     async fn live_presence() {
-        let it = crate::innertube::InnerTube::new().unwrap();
+        let it = melodi_core::innertube::InnerTube::new().unwrap();
         let song = it
             .search("yeat")
             .await

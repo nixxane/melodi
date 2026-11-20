@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { listen } from "@tauri-apps/api/event";
 import { backendStatus, browseHome, setAudioCache } from "./api";
 import { Sidebar } from "./components/Sidebar";
 import { PlayerBar } from "./components/PlayerBar";
@@ -21,7 +20,7 @@ import { useLikes } from "./lib/useLikes";
 import { SettingsContext, useSettingsState } from "./lib/useSettings";
 import { LikedView } from "./components/LikedView";
 import { SettingsView } from "./components/SettingsView";
-import { invoke } from "@tauri-apps/api/core";
+import { call as invoke, isDesktop, listen } from "./lib/platform";
 import { usePlayer } from "./lib/usePlayer";
 import type { PlayerCallbacks } from "./lib/usePlayer";
 import { useQueue } from "./lib/useQueue";
@@ -185,6 +184,7 @@ export default function App() {
     const title =
       track && isPlaying ? `${track.title} · ${artistLabel(track)} — Melodi` : "Melodi";
     document.title = title;
+    if (!isDesktop) return;
     try {
       getCurrentWindow()
         .setTitle(title)

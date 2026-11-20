@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { call as invoke, isDesktop } from "./lib/platform";
 import type {
   Artist,
   BackendStatus,
@@ -49,7 +49,10 @@ export const prepareStream = (videoId: string, forceRefresh = false) =>
   invoke<PreparedStream>("prepare_stream", { videoId, forceRefresh });
 
 /** Offline cache size limit in MB (0 = off). */
-export const setAudioCache = (limitMb: number) => invoke("set_audio_cache", { limitMb }).catch(() => {});
+/** The offline cache lives on the desktop; the web server manages its own. */
+export const setAudioCache = (limitMb: number) => {
+  if (isDesktop) invoke("set_audio_cache", { limitMb }).catch(() => {});
+};
 export const audioCacheInfo = () => invoke<CacheInfo>("audio_cache_info");
 export const clearAudioCache = () => invoke("clear_audio_cache");
 

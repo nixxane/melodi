@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { getVersion } from "@tauri-apps/api/app";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { appVersion, isDesktop, openExternal } from "../lib/platform";
 import type { BackendStatus, CacheInfo } from "../types";
 import { audioCacheInfo, clearAudioCache } from "../api";
 import { EQ_FREQS, EQ_PRESETS } from "../lib/audioEngine";
@@ -144,13 +143,15 @@ export function SettingsView({
   const [version, setVersion] = useState<string>("");
   const [checking, setChecking] = useState<string | null>(null);
   const [cache, setCache] = useState<CacheInfo | null>(null);
-  const refreshCache = () => audioCacheInfo().then(setCache).catch(() => setCache(null));
+  const refreshCache = () => {
+    if (isDesktop) audioCacheInfo().then(setCache).catch(() => setCache(null));
+  };
   useEffect(() => {
     refreshCache();
   }, [settings.cacheMb]);
 
   useEffect(() => {
-    getVersion().then(setVersion).catch(() => setVersion(""));
+    appVersion().then(setVersion).catch(() => setVersion(""));
   }, []);
 
   const setLocale = (patch: { language?: string; region?: string }) => {
@@ -166,7 +167,7 @@ export function SettingsView({
     setChecking(r === "found" ? "update available ↙" : r === "none" ? "you're up to date" : "couldn't check (offline?)");
   };
 
-  const open = (url: string) => openUrl(url).catch(() => {});
+  const open = (url: string) => openExternal(url).catch(() => {});
 
   return (
     <div className="settings fade-in">
@@ -216,20 +217,22 @@ export function SettingsView({
         <Row label="autoplay" hint="keep playing similar songs when the queue runs out">
           <Toggle on={autoplay} onChange={onAutoplay} label="autoplay" />
         </Row>
-        <Row
-          label="close to tray"
-          hint={
-            trayAvailable
-              ? "closing the window keeps melodi playing in the tray; quit from the tray menu"
-              : "no system tray found on this desktop"
-          }
-        >
-          <Toggle
-            on={trayAvailable && settings.closeToTray}
-            onChange={(v) => trayAvailable && update({ closeToTray: v })}
-            label="keep playing in tray"
-          />
-        </Row>
+        {isDesktop && (
+          <Row
+            label="close to tray"
+            hint={
+              trayAvailable
+                ? "closing the window keeps melodi playing in the tray; quit from the tray menu"
+                : "no system tray found on this desktop"
+            }
+          >
+            <Toggle
+              on={trayAvailable && settings.closeToTray}
+              onChange={(v) => trayAvailable && update({ closeToTray: v })}
+              label="keep playing in tray"
+            />
+          </Row>
+        )}
         <Row label="restore session" hint="reopen your last queue (paused) when melodi starts">
           <Toggle
             on={settings.restoreSession}
@@ -286,33 +289,35 @@ export function SettingsView({
             ))}
           </div>
         </Row>
-        <Row
-          label="offline cache"
-          hint={
-            cache
-              ? `songs you play are saved for instant, offline replay · ${fmtBytes(cache.bytes)} used, ${cache.songs} songs`
-              : "songs you play are saved for instant, offline replay"
-          }
-        >
-          <select
-            className="set-select"
-            value={settings.cacheMb}
-            onChange={(e) => update({ cacheMb: Number(e.target.value) })}
+        {isDesktop && (
+          <Row
+            label="offline cache"
+            hint={
+              cache
+                ? `songs you play are saved for instant, offline replay · ${fmtBytes(cache.bytes)} used, ${cache.songs} songs`
+                : "songs you play are saved for instant, offline replay"
+            }
           >
-            {CACHE_SIZES.map(([mb, label]) => (
-              <option key={mb} value={mb}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <ConfirmButton
-            label="clear"
-            disabled={!cache?.songs}
-            onConfirm={() => {
-              clearAudioCache().finally(refreshCache);
-            }}
-          />
-        </Row>
+            <select
+              className="set-select"
+              value={settings.cacheMb}
+              onChange={(e) => update({ cacheMb: Number(e.target.value) })}
+            >
+              {CACHE_SIZES.map(([mb, label]) => (
+                <option key={mb} value={mb}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <ConfirmButton
+              label="clear"
+              disabled={!cache?.songs}
+              onConfirm={() => {
+                clearAudioCache().finally(refreshCache);
+              }}
+            />
+          </Row>
+        )}
       </section>
 
       <section className="set-section">
@@ -345,30 +350,32 @@ export function SettingsView({
         </Row>
       </section>
 
-      <section className="set-section">
-        <h2 className="view-title">integrations</h2>
-        <Row
-          label="discord"
-          hint={discord.available ? "show “listening to <artist>” on your discord profile" : "not available in this build"}
-        >
-          <Toggle
-            on={discord.available && discord.enabled}
-            onChange={(v) => discord.available && discord.setEnabled(v)}
-            label="rich presence"
-          />
-        </Row>
-        <Row label="updates" hint="check github for new versions on launch and every few hours">
-          <Toggle on={settings.checkUpdates} onChange={(v) => update({ checkUpdates: v })} label="check automatically" />
-          <button className="kbtn" onClick={check} disabled={checking === "checking…"}>
-            check now
-          </button>
-          {checking ? <span className="set-hint">{checking}</span> : null}
-        </Row>
-      </section>
+      {isDesktop && (
+        <section className="set-section">
+          <h2 className="view-title">integrations</h2>
+          <Row
+            label="discord"
+            hint={discord.available ? "show “listening to <artist>” on your discord profile" : "not available in this build"}
+          >
+            <Toggle
+              on={discord.available && discord.enabled}
+              onChange={(v) => discord.available && discord.setEnabled(v)}
+              label="rich presence"
+            />
+          </Row>
+          <Row label="updates" hint="check github for new versions on launch and every few hours">
+            <Toggle on={settings.checkUpdates} onChange={(v) => update({ checkUpdates: v })} label="check automatically" />
+            <button className="kbtn" onClick={check} disabled={checking === "checking…"}>
+              check now
+            </button>
+            {checking ? <span className="set-hint">{checking}</span> : null}
+          </Row>
+        </section>
+      )}
 
       <section className="set-section">
         <h2 className="view-title">your data</h2>
-        <p className="set-hint set-note">everything below is stored only on this computer.</p>
+        <p className="set-hint set-note">everything below is stored only on this {isDesktop ? "computer" : "device, in this browser"}.</p>
         <Row label="recently played" hint={`${data.recentCount} songs`}>
           <ConfirmButton label="clear" onConfirm={data.clearRecent} disabled={!data.recentCount} />
         </Row>

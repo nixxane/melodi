@@ -117,6 +117,15 @@ impl InnerTube {
         Ok(())
     }
 
+    /// A client for one request's language / region, sharing this client's
+    /// connection pool (the web server serves many users with different
+    /// locales, so it can't change the shared one).
+    pub fn with_locale(&self, hl: &str, gl: &str) -> Result<InnerTube, Error> {
+        let it = InnerTube { http: self.http.clone(), locale: std::sync::RwLock::new(("en".into(), "US".into())) };
+        it.set_locale(hl, gl)?;
+        Ok(it)
+    }
+
     async fn call(&self, endpoint: &str, mut body: Value) -> Result<Value, Error> {
         let (hl, gl) = self
             .locale

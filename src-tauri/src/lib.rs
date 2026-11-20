@@ -1,33 +1,22 @@
-mod audio;
+mod audio_server;
 mod commands;
 mod discord;
 mod tray;
-mod innertube;
-mod live;
-mod lyrics;
-mod spotify;
-mod ytdlp;
 
-use innertube::InnerTube;
-use ytdlp::StreamCache;
+use std::sync::Arc;
 
-/// Crate-wide error type shared by the InnerTube client and the yt-dlp backend.
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("network error: {0}")]
-    Network(#[from] reqwest::Error),
-    #[error("json error: {0}")]
-    Json(#[from] serde_json::Error),
-    #[error("io error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("{0}")]
-    Msg(String),
-}
+use melodi_core::audio::{AudioStore, DEFAULT_LIMIT};
+use melodi_core::innertube::InnerTube;
+use melodi_core::ytdlp::{self, StreamCache};
+use melodi_core::{lyrics, spotify};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let inner = InnerTube::new().expect("failed to build InnerTube client");
+    let inner = Arc::new(InnerTube::new().expect("failed to build InnerTube client"));
+    let streams = Arc::new(StreamCache::default());
     let lyrics = lyrics::LyricsClient::new().expect("failed to build lyrics client");
+
+    let (inner_for_audio, streams_for_audio) = (inner.clone(), streams.clone());
 
     tauri::Builder::default()
         // Must be registered first: a second launch (taskbar, Start menu,
@@ -38,10 +27,14 @@ pub fn run() {
         }))
         .manage(tray::TrayState::default())
         .on_window_event(tray::on_window_event)
-        .setup(|app| {
+        .setup(move |app| {
             tray::setup(app);
-            // Local audio proxy + offline cache (see audio.rs).
-            match audio::AudioServer::start(app.handle()) {
+            // Local audio proxy + offline cache (see audio_server.rs).
+            let path = tauri::Manager::path(app);
+            let cache_dir = path.app_cache_dir()?.join("audio");
+            let data_dir = path.app_data_dir()?;
+            let store = AudioStore::new(cache_dir, data_dir, inner_for_audio, streams_for_audio, DEFAULT_LIMIT)?;
+            match audio_server::AudioServer::start(store) {
                 Ok(server) => {
                     tauri::Manager::manage(app, server);
                 }
@@ -59,7 +52,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
         .manage(inner)
-        .manage(StreamCache::default())
+        .manage(streams)
         .manage(lyrics)
         .manage(spotify::Spotify::new().expect("failed to build Spotify client"))
         .manage(discord::Discord::start())

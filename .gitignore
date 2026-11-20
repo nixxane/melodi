@@ -20,3 +20,6 @@ POLISH_PLAN.md
 
 # Local tooling
 .claude/
+
+# Server / core builds
+crates/*/target/

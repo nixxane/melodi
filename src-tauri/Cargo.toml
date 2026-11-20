@@ -17,12 +17,11 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = ["tray-icon"] }
+melodi-core = { path = "../crates/melodi-core" }
+futures-util = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip", "brotli", "charset", "http2"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "process", "io-util", "fs", "sync", "net"] }
-sha2 = "0.10"
-thiserror = "1"
 tauri-plugin-updater = "2.12.0"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-opener = "2.5.5"

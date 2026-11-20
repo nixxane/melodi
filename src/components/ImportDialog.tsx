@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { listen } from "../lib/platform";
 import { importSpotify, importTracks } from "../api";
 import type { ImportResult } from "../types";
 import { isSpotifyLink, parseTrackFile } from "../lib/importFile";

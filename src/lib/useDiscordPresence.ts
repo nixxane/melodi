@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { call as invoke, isDesktop } from "./platform";
 import type { PlayerApi } from "./usePlayer";
 import { pickThumb } from "./format";
 import { loadJSON, saveJSON } from "./storage";
@@ -15,6 +15,7 @@ export function useDiscordPresence(player: PlayerApi) {
   const [enabled, setEnabledState] = useState<boolean>(() => loadJSON<unknown>(KEY, true) !== false);
 
   useEffect(() => {
+    if (!isDesktop) return;
     invoke<boolean>("discord_available")
       .then(setAvailable)
       .catch(() => setAvailable(false));

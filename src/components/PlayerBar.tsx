@@ -22,7 +22,8 @@ interface Props {
   /** Sleep timer label (e.g. "23m"), or null when off. */
   sleepLabel: string | null;
   onSleep: () => void;
-  onMini: () => void;
+  /** Absent where there's no mini player (the web). */
+  onMini?: () => void;
 }
 
 /** How many monospace character cells fit in an element's width. */
@@ -342,9 +343,11 @@ export function PlayerBar({
           >
             lyrics
           </button>
-          <button className="kbtn" onClick={onMini} title="Mini player: small, always on top">
-            mini
-          </button>
+          {onMini && (
+            <button className="kbtn" onClick={onMini} title="Mini player: small, always on top">
+              mini
+            </button>
+          )}
           <button className="kbtn" onClick={onOpenQueue} aria-label="Open queue" title="Queue (3)">
             queue
           </button>

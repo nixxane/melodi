@@ -1,26 +1,29 @@
-//! Local audio proxy + offline cache.
+//! Audio relay + song cache, independent of any particular HTTP server.
 //!
-//! The webview can't process YouTube's audio directly (googlevideo sends no
-//! CORS headers, so Web Audio would only hear silence). Instead every song is
-//! played through a tiny HTTP server on 127.0.0.1 that
-//!   * forwards range requests to YouTube and adds CORS headers,
-//!   * downloads the whole song into a disk cache in the background, and
+//! The player can't use YouTube's audio URLs directly (googlevideo sends no
+//! CORS headers, so Web Audio would only hear silence, and the URLs are tied
+//! to the IP that resolved them). Instead every song is played through
+//! Melodi's own HTTP endpoint, which
+//!   * forwards range requests to YouTube,
+//!   * downloads the whole song into a disk cache in the background,
 //!   * serves cached songs straight from disk (instant start, works offline),
 //!   * turns live broadcasts (HLS) into one endless AAC stream (see live.rs).
 //!
-//! Requests must carry a random per-run key, so other local programs and web
-//! pages can't use the server.
+//! [`AudioStore::serve`] returns an [`AudioResponse`] (status, headers and a
+//! body stream). The desktop app writes it to a tiny 127.0.0.1 server; the
+//! web server hands it to axum. CORS and access control are the caller's job.
 
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
+use bytes::Bytes;
+use futures_util::{Stream, StreamExt, TryStreamExt};
 use serde::Serialize;
-use tauri::{AppHandle, Manager};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
 
 use crate::innertube::InnerTube;
 use crate::live::{LiveError, LiveFeed};
@@ -35,7 +38,7 @@ const SLICE: u64 = 2 * 1024 * 1024;
 const CHUNK: u64 = 4 * 1024 * 1024;
 /// Songs bigger than this (hour-long mixes) are streamed but not cached.
 const MAX_CACHED_FILE: u64 = 200 * 1024 * 1024;
-const DEFAULT_LIMIT: u64 = 1024 * 1024 * 1024;
+pub const DEFAULT_LIMIT: u64 = 1024 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Prepared {
@@ -57,90 +60,94 @@ pub struct CacheInfo {
     pub limit_bytes: u64,
 }
 
-pub struct AudioServer {
-    port: u16,
-    key: String,
+/// Body of an [`AudioResponse`]: chunks pulled one at a time, so a paused
+/// player (which stops reading) also pauses the upstream download.
+pub type BodyStream = Pin<Box<dyn Stream<Item = std::io::Result<Bytes>> + Send>>;
+
+pub struct AudioResponse {
+    pub status: u16,
+    pub headers: Vec<(&'static str, String)>,
+    /// None for an empty body (errors, HEAD requests).
+    pub body: Option<BodyStream>,
+}
+
+impl AudioResponse {
+    fn empty(status: u16) -> Self {
+        Self { status, headers: vec![("Content-Length", "0".into())], body: None }
+    }
+}
+
+/// Byte range from a `Range` header: (start, inclusive end).
+pub type Range = Option<(u64, Option<u64>)>;
+
+#[derive(Clone)]
+pub struct AudioStore {
     inner: Arc<Inner>,
 }
 
 struct Inner {
-    app: AppHandle,
+    /// Song cache folder.
     dir: PathBuf,
+    /// App data folder (yt-dlp lives under it).
+    data_dir: PathBuf,
     http: reqwest::Client,
+    yt: Arc<InnerTube>,
+    streams: Arc<StreamCache>,
     limit: AtomicU64,
     downloading: Mutex<HashSet<String>>,
     loudness: Mutex<HashMap<String, f32>>,
 }
 
-impl AudioServer {
-    /// Bind the server and start accepting connections.
-    pub fn start(app: &AppHandle) -> Result<Self, Error> {
-        let base = app
-            .path()
-            .app_cache_dir()
-            .map_err(|e| Error::Msg(format!("no cache dir: {e}")))?;
-        let dir = base.join("audio");
-        std::fs::create_dir_all(&dir)?;
+impl AudioStore {
+    /// `cache_dir` holds the songs; `data_dir` is where yt-dlp is managed.
+    /// Doesn't spawn anything, so it's safe to call outside a Tokio runtime.
+    pub fn new(
+        cache_dir: PathBuf,
+        data_dir: PathBuf,
+        yt: Arc<InnerTube>,
+        streams: Arc<StreamCache>,
+        limit_bytes: u64,
+    ) -> Result<Self, Error> {
+        std::fs::create_dir_all(&cache_dir)?;
         // Leftovers from a download that was interrupted last time.
-        if let Ok(rd) = std::fs::read_dir(&dir) {
+        if let Ok(rd) = std::fs::read_dir(&cache_dir) {
             for e in rd.flatten() {
                 if e.path().extension().is_some_and(|x| x == "part") {
                     let _ = std::fs::remove_file(e.path());
                 }
             }
         }
-        let loudness = std::fs::read(dir.join("loudness.json"))
+        let loudness = std::fs::read(cache_dir.join("loudness.json"))
             .ok()
             .and_then(|b| serde_json::from_slice(&b).ok())
             .unwrap_or_default();
 
-        let std_listener = std::net::TcpListener::bind("127.0.0.1:0")?;
-        std_listener.set_nonblocking(true)?;
-        let port = std_listener.local_addr()?.port();
-
-        let inner = Arc::new(Inner {
-            app: app.clone(),
-            dir,
-            http: reqwest::Client::builder()
-                .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36")
-                .connect_timeout(Duration::from_secs(10))
-                .build()?,
-            limit: AtomicU64::new(DEFAULT_LIMIT),
-            downloading: Mutex::new(HashSet::new()),
-            loudness: Mutex::new(loudness),
-        });
-
-        let srv = inner.clone();
-        let key = random_key();
-        let k = key.clone();
-        tauri::async_runtime::spawn(async move {
-            let listener = match TcpListener::from_std(std_listener) {
-                Ok(l) => l,
-                Err(e) => {
-                    eprintln!("[melodi] audio server failed: {e}");
-                    return;
-                }
-            };
-            loop {
-                let Ok((sock, _)) = listener.accept().await else { continue };
-                let srv = srv.clone();
-                let k = k.clone();
-                tauri::async_runtime::spawn(async move {
-                    let _ = handle(sock, &srv, &k).await;
-                });
-            }
-        });
-
-        Ok(Self { port, key, inner })
+        Ok(Self {
+            inner: Arc::new(Inner {
+                dir: cache_dir,
+                data_dir,
+                http: reqwest::Client::builder()
+                    .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36")
+                    .connect_timeout(Duration::from_secs(10))
+                    .build()?,
+                yt,
+                streams,
+                limit: AtomicU64::new(limit_bytes),
+                downloading: Mutex::new(HashSet::new()),
+                loudness: Mutex::new(loudness),
+            }),
+        })
     }
 
-    fn url_for(&self, id: &str) -> String {
-        format!("http://127.0.0.1:{}/a/{id}?k={}", self.port, self.key)
-    }
-
-    /// Resolve a song (unless it's cached) and return the proxy URL plus its
-    /// loudness. Resolution errors are returned so the UI can explain them.
-    pub async fn prepare(&self, video_id: &str, force: bool) -> Result<Prepared, Error> {
+    /// Resolve a song (unless it's cached) and return its playback URL plus
+    /// loudness. `url_for(live)` builds the caller's URL for this song.
+    /// Resolution errors are returned so the UI can explain them.
+    pub async fn prepare(
+        &self,
+        video_id: &str,
+        force: bool,
+        url_for: impl FnOnce(bool) -> String,
+    ) -> Result<Prepared, Error> {
         if !valid_id(video_id) {
             return Err(Error::Msg("invalid video id".into()));
         }
@@ -153,7 +160,7 @@ impl AudioServer {
                 Some(l) => Some(l),
                 None => inner.fetch_loudness(video_id, Duration::from_millis(1200)).await,
             };
-            return Ok(Prepared { url: self.url_for(video_id), live: false, loudness_db, cached: true });
+            return Ok(Prepared { url: url_for(false), live: false, loudness_db, cached: true });
         }
 
         let resolve = inner.resolve(video_id, force);
@@ -165,11 +172,7 @@ impl AudioServer {
         };
         let (info, loudness_db) = tokio::join!(resolve, loud);
         let info = info?;
-        if info.hls {
-            let url = format!("http://127.0.0.1:{}/live/{video_id}?k={}", self.port, self.key);
-            return Ok(Prepared { url, live: true, loudness_db, cached: false });
-        }
-        Ok(Prepared { url: self.url_for(video_id), live: false, loudness_db, cached: false })
+        Ok(Prepared { url: url_for(info.hls), live: info.hls, loudness_db, cached: false })
     }
 
     /// Download the song into the cache ahead of time (used for "up next").
@@ -187,10 +190,12 @@ impl AudioServer {
         }
     }
 
-    pub fn set_limit_mb(&self, mb: u64) {
-        self.inner.limit.store(mb * 1024 * 1024, Ordering::Relaxed);
+    /// Cache size limit; 0 turns caching off. Evicts on a plain thread, so
+    /// it works from sync code too.
+    pub fn set_limit_bytes(&self, bytes: u64) {
+        self.inner.limit.store(bytes, Ordering::Relaxed);
         let inner = self.inner.clone();
-        tauri::async_runtime::spawn_blocking(move || inner.evict());
+        std::thread::spawn(move || inner.evict());
     }
 
     pub fn info(&self) -> CacheInfo {
@@ -203,18 +208,41 @@ impl AudioServer {
             let _ = std::fs::remove_file(path);
         }
     }
+
+    /// Answer a GET/HEAD for a song (`live` = the endless HLS-to-AAC stream).
+    pub async fn serve(&self, id: &str, live: bool, range: Range, head_only: bool) -> AudioResponse {
+        if !valid_id(id) {
+            return AudioResponse::empty(403);
+        }
+        let inner = &self.inner;
+        if live {
+            return serve_live(inner, id, head_only).await;
+        }
+
+        // 1. From disk.
+        if let Some((path, mime)) = inner.cached_file(id) {
+            return serve_file(path, mime, range, head_only).await;
+        }
+
+        // 2. From YouTube, caching the whole song in the background.
+        let Ok(info) = inner.resolve(id, false).await else {
+            return AudioResponse::empty(502);
+        };
+        if info.hls {
+            return AudioResponse::empty(415);
+        }
+        inner.clone().download_in_background(id.to_string(), info.url.clone());
+        serve_upstream(inner, id, info.url, range, head_only).await
+    }
 }
 
 impl Inner {
     async fn resolve(&self, id: &str, force: bool) -> Result<StreamInfo, Error> {
-        let dir = self.app.path().app_data_dir().map_err(|e| Error::Msg(e.to_string()))?;
-        let cache = self.app.state::<StreamCache>();
-        ytdlp::resolve_stream(&dir, &cache, id, force).await
+        ytdlp::resolve_stream(&self.data_dir, &self.streams, id, force).await
     }
 
     async fn fetch_loudness(&self, id: &str, timeout: Duration) -> Option<f32> {
-        let it = self.app.state::<InnerTube>();
-        let l = tokio::time::timeout(timeout, it.loudness(id)).await.ok()?.ok()??;
+        let l = tokio::time::timeout(timeout, self.yt.loudness(id)).await.ok()?.ok()??;
         if let Ok(mut m) = self.loudness.lock() {
             m.insert(id.to_string(), l);
             if m.len() > 20_000 {
@@ -288,13 +316,15 @@ impl Inner {
                 return;
             }
         }
-        tauri::async_runtime::spawn(async move {
+        tokio::spawn(async move {
             if let Err(e) = self.download(&id, url).await {
                 eprintln!("[melodi] caching {id} failed: {e}");
             }
             if let Ok(mut d) = self.downloading.lock() {
                 d.remove(&id);
             }
+            let me = self.clone();
+            let _ = tokio::task::spawn_blocking(move || me.evict()).await;
         });
     }
 
@@ -344,56 +374,14 @@ impl Inner {
             return Err(Error::Msg("incomplete download".into()));
         }
         tokio::fs::rename(&part, self.dir.join(format!("{id}.{ext}"))).await?;
-        let me = self.app.state::<AudioServer>().inner.clone();
-        tauri::async_runtime::spawn_blocking(move || me.evict());
         Ok(())
     }
 }
 
-// ---- HTTP ------------------------------------------------------------------
+// ---- responses ---------------------------------------------------------------
 
-struct Request {
-    method: String,
-    path: String,
-    query: String,
-    range: Option<(u64, Option<u64>)>,
-}
-
-async fn read_request(sock: &mut TcpStream) -> Option<Request> {
-    let mut buf = Vec::with_capacity(1024);
-    let mut tmp = [0u8; 1024];
-    loop {
-        let n = tokio::time::timeout(Duration::from_secs(10), sock.read(&mut tmp)).await.ok()?.ok()?;
-        if n == 0 {
-            return None;
-        }
-        buf.extend_from_slice(&tmp[..n]);
-        if buf.windows(4).any(|w| w == b"\r\n\r\n") {
-            break;
-        }
-        if buf.len() > 16 * 1024 {
-            return None;
-        }
-    }
-    let text = String::from_utf8_lossy(&buf);
-    let mut lines = text.split("\r\n");
-    let mut first = lines.next()?.split(' ');
-    let method = first.next()?.to_string();
-    let target = first.next()?;
-    let (path, query) = target.split_once('?').unwrap_or((target, ""));
-    let mut range = None;
-    for line in lines {
-        if let Some((k, v)) = line.split_once(':') {
-            if k.trim().eq_ignore_ascii_case("range") {
-                range = parse_range(v.trim());
-            }
-        }
-    }
-    Some(Request { method, path: path.to_string(), query: query.to_string(), range })
-}
-
-fn parse_range(v: &str) -> Option<(u64, Option<u64>)> {
-    let spec = v.strip_prefix("bytes=")?;
+pub fn parse_range(v: &str) -> Range {
+    let spec = v.trim().strip_prefix("bytes=")?;
     if spec.contains(',') {
         return None;
     }
@@ -403,100 +391,69 @@ fn parse_range(v: &str) -> Option<(u64, Option<u64>)> {
     Some((start, end))
 }
 
-const CORS: &str = "Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Headers: Range\r\nAccess-Control-Expose-Headers: Content-Range, Content-Length, Accept-Ranges\r\n";
-
-async fn simple(sock: &mut TcpStream, status: &str) -> std::io::Result<()> {
-    let head = format!("HTTP/1.1 {status}\r\n{CORS}Content-Length: 0\r\nConnection: close\r\n\r\n");
-    sock.write_all(head.as_bytes()).await
-}
-
-async fn handle(mut sock: TcpStream, inner: &Arc<Inner>, key: &str) -> std::io::Result<()> {
-    let Some(req) = read_request(&mut sock).await else { return Ok(()) };
-    if req.method == "OPTIONS" {
-        return simple(&mut sock, "204 No Content").await;
-    }
-    let (live, id) = match req.path.strip_prefix("/live/") {
-        Some(id) => (true, id),
-        None => (false, req.path.strip_prefix("/a/").unwrap_or("")),
-    };
-    let key_ok = req.query.split('&').any(|p| p == format!("k={key}"));
-    if !key_ok || !valid_id(id) {
-        return simple(&mut sock, "403 Forbidden").await;
-    }
-    let head_only = req.method == "HEAD";
-    if req.method != "GET" && !head_only {
-        return simple(&mut sock, "405 Method Not Allowed").await;
-    }
-
-    if live {
-        return serve_live(&mut sock, inner, id, head_only).await;
-    }
-
-    // 1. From disk.
-    if let Some((path, mime)) = inner.cached_file(id) {
-        return serve_file(&mut sock, &path, mime, req.range, head_only).await;
-    }
-
-    // 2. From YouTube, caching the whole song in the background.
-    let Ok(info) = inner.resolve(id, false).await else {
-        return simple(&mut sock, "502 Bad Gateway").await;
-    };
-    if info.hls {
-        return simple(&mut sock, "415 Unsupported Media Type").await;
-    }
-    inner.clone().download_in_background(id.to_string(), info.url.clone());
-    serve_upstream(&mut sock, inner, id, info.url, req.range, head_only).await
-}
-
 /// Follow a live broadcast and stream it as one endless AAC response.
-async fn serve_live(sock: &mut TcpStream, inner: &Arc<Inner>, id: &str, head_only: bool) -> std::io::Result<()> {
-    let head = format!(
-        "HTTP/1.1 200 OK\r\n{CORS}Content-Type: audio/aac\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n"
-    );
+async fn serve_live(inner: &Arc<Inner>, id: &str, head_only: bool) -> AudioResponse {
+    let headers = vec![("Content-Type", "audio/aac".to_string()), ("Cache-Control", "no-store".into())];
     if head_only {
-        return sock.write_all(head.as_bytes()).await;
+        return AudioResponse { status: 200, headers, body: None };
     }
     let url = match inner.resolve(id, false).await {
         Ok(info) if info.hls => info.url,
-        _ => return simple(sock, "502 Bad Gateway").await,
+        _ => return AudioResponse::empty(502),
     };
     let mut feed = LiveFeed::new(inner.http.clone(), url);
-    let mut sent_head = false;
-    // Re-resolves allowed in a row before giving up (reset by every chunk).
+    // Wait for the first chunk so a dead stream can still answer 502.
     let mut refreshes = 0;
-    loop {
+    let first = loop {
         match feed.next_chunk(Duration::from_secs(30)).await {
-            Ok(Some(chunk)) => {
-                refreshes = 0;
-                if !sent_head {
-                    sock.write_all(head.as_bytes()).await?;
-                    sent_head = true;
-                }
-                // Blocks while the player is paused; errors once it lets go.
-                sock.write_all(&chunk).await?;
-            }
-            Ok(None) => break,
+            Ok(Some(chunk)) => break chunk,
             Err(LiveError::Expired) if refreshes < 2 => {
                 refreshes += 1;
                 match inner.resolve(id, true).await {
                     Ok(info) if info.hls => feed.set_url(info.url),
-                    _ => break,
+                    _ => return AudioResponse::empty(502),
                 }
             }
-            Err(e) => {
-                eprintln!("[melodi] live stream {id} stopped: {e:?}");
-                break;
+            Ok(None) | Err(_) => return AudioResponse::empty(502),
+        }
+    };
+
+    struct St {
+        inner: Arc<Inner>,
+        id: String,
+        feed: LiveFeed,
+        first: Option<Vec<u8>>,
+    }
+    let st = St { inner: inner.clone(), id: id.to_string(), feed, first: Some(first) };
+    let body = futures_util::stream::unfold(st, |mut st| async move {
+        if let Some(c) = st.first.take() {
+            return Some((Ok(Bytes::from(c)), st));
+        }
+        // Re-resolves allowed in a row before giving up (reset by every chunk).
+        let mut refreshes = 0;
+        loop {
+            match st.feed.next_chunk(Duration::from_secs(30)).await {
+                Ok(Some(chunk)) => return Some((Ok(Bytes::from(chunk)), st)),
+                Ok(None) => return None,
+                Err(LiveError::Expired) if refreshes < 2 => {
+                    refreshes += 1;
+                    match st.inner.resolve(&st.id, true).await {
+                        Ok(info) if info.hls => st.feed.set_url(info.url),
+                        _ => return None,
+                    }
+                }
+                Err(e) => {
+                    eprintln!("[melodi] live stream {} stopped: {e:?}", st.id);
+                    return None;
+                }
             }
         }
-    }
-    if !sent_head {
-        return simple(sock, "502 Bad Gateway").await;
-    }
-    Ok(())
+    });
+    AudioResponse { status: 200, headers, body: Some(Box::pin(body)) }
 }
 
 /// Work out the byte span to send. Returns (start, end inclusive, partial).
-fn span(range: Option<(u64, Option<u64>)>, total: u64) -> Option<(u64, u64, bool)> {
+fn span(range: Range, total: u64) -> Option<(u64, u64, bool)> {
     match range {
         None => Some((0, total.checked_sub(1)?, false)),
         Some((start, end)) => {
@@ -512,72 +469,68 @@ fn span(range: Option<(u64, Option<u64>)>, total: u64) -> Option<(u64, u64, bool
     }
 }
 
-fn head(mime: &str, start: u64, end: u64, total: u64, partial: bool) -> String {
-    let len = end - start + 1;
-    let status = if partial { "206 Partial Content" } else { "200 OK" };
-    let range = if partial { format!("Content-Range: bytes {start}-{end}/{total}\r\n") } else { String::new() };
-    format!(
-        "HTTP/1.1 {status}\r\n{CORS}Content-Type: {mime}\r\nContent-Length: {len}\r\n{range}Accept-Ranges: bytes\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n"
-    )
+fn ranged(mime: &str, start: u64, end: u64, total: u64, partial: bool, body: Option<BodyStream>) -> AudioResponse {
+    let mut headers = vec![
+        ("Content-Type", mime.to_string()),
+        ("Content-Length", (end - start + 1).to_string()),
+        ("Accept-Ranges", "bytes".into()),
+        ("Cache-Control", "no-store".into()),
+    ];
+    if partial {
+        headers.push(("Content-Range", format!("bytes {start}-{end}/{total}")));
+    }
+    AudioResponse { status: if partial { 206 } else { 200 }, headers, body }
 }
 
-async fn not_satisfiable(sock: &mut TcpStream, total: u64) -> std::io::Result<()> {
-    let h = format!("HTTP/1.1 416 Range Not Satisfiable\r\n{CORS}Content-Range: bytes */{total}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
-    sock.write_all(h.as_bytes()).await
+fn not_satisfiable(total: u64) -> AudioResponse {
+    AudioResponse {
+        status: 416,
+        headers: vec![("Content-Range", format!("bytes */{total}")), ("Content-Length", "0".into())],
+        body: None,
+    }
 }
 
-async fn serve_file(
-    sock: &mut TcpStream,
-    path: &Path,
-    mime: &str,
-    range: Option<(u64, Option<u64>)>,
-    head_only: bool,
-) -> std::io::Result<()> {
-    let mut f = tokio::fs::File::open(path).await?;
-    let total = f.metadata().await?.len();
+async fn serve_file(path: PathBuf, mime: &str, range: Range, head_only: bool) -> AudioResponse {
+    let Ok(mut f) = tokio::fs::File::open(&path).await else {
+        return AudioResponse::empty(404);
+    };
+    let Ok(total) = f.metadata().await.map(|m| m.len()) else {
+        return AudioResponse::empty(500);
+    };
     // Mark as recently played so eviction keeps it.
-    if let Ok(std_f) = std::fs::File::options().write(true).open(path) {
+    if let Ok(std_f) = std::fs::File::options().write(true).open(&path) {
         let _ = std_f.set_modified(SystemTime::now());
     }
     let Some((start, end, partial)) = span(range, total) else {
-        return not_satisfiable(sock, total).await;
+        return not_satisfiable(total);
     };
-    sock.write_all(head(mime, start, end, total, partial).as_bytes()).await?;
     if head_only {
-        return Ok(());
+        return ranged(mime, start, end, total, partial, None);
     }
-    f.seek(std::io::SeekFrom::Start(start)).await?;
-    let mut left = end - start + 1;
-    let mut buf = vec![0u8; 64 * 1024];
-    while left > 0 {
-        let want = left.min(buf.len() as u64) as usize;
-        let n = f.read(&mut buf[..want]).await?;
-        if n == 0 {
-            break;
-        }
-        sock.write_all(&buf[..n]).await?;
-        left -= n as u64;
+    if f.seek(std::io::SeekFrom::Start(start)).await.is_err() {
+        return AudioResponse::empty(500);
     }
-    Ok(())
+    let reader = f.take(end - start + 1);
+    let body = tokio_util::io::ReaderStream::with_capacity(reader, 64 * 1024);
+    ranged(mime, start, end, total, partial, Some(Box::pin(body)))
 }
 
 async fn serve_upstream(
-    sock: &mut TcpStream,
     inner: &Arc<Inner>,
     id: &str,
     mut url: String,
-    range: Option<(u64, Option<u64>)>,
+    range: Range,
     head_only: bool,
-) -> std::io::Result<()> {
+) -> AudioResponse {
     let (_, mime) = mime_of(&url);
     let Some(total) = clen_of(&url) else {
-        return simple(sock, "502 Bad Gateway").await;
+        return AudioResponse::empty(502);
     };
     let Some((start, end, partial)) = span(range, total) else {
-        return not_satisfiable(sock, total).await;
+        return not_satisfiable(total);
     };
     if head_only {
-        return sock.write_all(head(mime, start, end, total, partial).as_bytes()).await;
+        return ranged(mime, start, end, total, partial, None);
     }
 
     let mut resp = None;
@@ -602,20 +555,16 @@ async fn serve_upstream(
             _ => break,
         }
     }
-    let Some(mut resp) = resp else {
-        return simple(sock, "502 Bad Gateway").await;
+    let Some(resp) = resp else {
+        return AudioResponse::empty(502);
     };
-
-    sock.write_all(head(mime, start, end, total, partial).as_bytes()).await?;
-    while let Ok(Some(chunk)) = resp.chunk().await {
-        sock.write_all(&chunk).await?;
-    }
-    Ok(())
+    let body = resp.bytes_stream().map_err(std::io::Error::other).boxed();
+    ranged(mime, start, end, total, partial, Some(body))
 }
 
 // ---- helpers -----------------------------------------------------------------
 
-fn valid_id(id: &str) -> bool {
+pub fn valid_id(id: &str) -> bool {
     id.len() == 11 && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }
 
@@ -634,18 +583,6 @@ fn mime_of(url: &str) -> (&'static str, &'static str) {
         Some(m) if m.contains("mp4") => ("m4a", "audio/mp4"),
         _ => ("webm", "audio/webm"),
     }
-}
-
-/// 128-bit key from the OS-seeded hasher keys (std's RandomState draws them
-/// from the system RNG), so no extra crate is needed.
-fn random_key() -> String {
-    use std::hash::{BuildHasher, Hasher};
-    let part = || {
-        let mut h = std::collections::hash_map::RandomState::new().build_hasher();
-        h.write_u128(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0));
-        h.finish()
-    };
-    format!("{:016x}{:016x}", part(), part())
 }
 
 #[cfg(test)]

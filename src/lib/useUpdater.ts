@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { check } from "@tauri-apps/plugin-updater";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { isWeb, openExternal } from "./platform";
 
 export const RELEASES_URL = "https://github.com/nixxane/melodi/releases/latest";
 const FIRST_CHECK_MS = 8_000;
@@ -23,7 +23,8 @@ export function useUpdater(autoCheck = true) {
 
   /** Returns "found", "none" or "error". */
   const runCheck = useCallback(async (manual = false): Promise<"found" | "none" | "error"> => {
-    if (busy.current) return "none";
+    // The web app updates itself on reload.
+    if (busy.current || isWeb) return "none";
     try {
       const u = await check();
       if (u) {
@@ -80,7 +81,7 @@ export function useUpdater(autoCheck = true) {
   }, [update]);
 
   const openReleases = useCallback(() => {
-    openUrl(RELEASES_URL).catch(() => {});
+    openExternal(RELEASES_URL).catch(() => {});
   }, []);
 
   return {

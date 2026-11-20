@@ -63,8 +63,8 @@ pub fn locate() -> Option<PathBuf> {
         }
     }
 
-    // 4. Dev checkout: <manifest>/binaries.
-    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    // 4. Dev checkout: src-tauri/binaries.
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../src-tauri");
     for name in BINARY_NAMES {
         let cand = manifest.join("binaries").join(name);
         if cand.is_file() {
@@ -381,11 +381,29 @@ pub async fn maybe_update(app_data_dir: &Path, after_failure: bool) -> bool {
     }
 }
 
+static RESOLVE_SLOTS: std::sync::LazyLock<tokio::sync::Semaphore> = std::sync::LazyLock::new(|| {
+    let n = std::env::var("MELODI_YTDLP_CONCURRENCY").ok().and_then(|v| v.parse().ok()).unwrap_or(6);
+    tokio::sync::Semaphore::new(n)
+});
+
+/// Extra yt-dlp arguments from `MELODI_YTDLP_ARGS`, split on whitespace
+/// (e.g. `--cookies /data/cookies.txt --proxy socks5://host:1080`). Lets a
+/// server operator work around YouTube's bot checks without a rebuild.
+fn extra_args() -> Vec<String> {
+    std::env::var("MELODI_YTDLP_ARGS")
+        .map(|v| v.split_whitespace().map(String::from).collect())
+        .unwrap_or_default()
+}
+
 async fn resolve_once(app_data_dir: &Path, video_id: &str) -> Result<StreamInfo, Error> {
     let bin = ensure(app_data_dir).await?;
     let target = format!("https://music.youtube.com/watch?v={video_id}");
 
+    // Caps how many yt-dlp processes run at once (each is a Python process;
+    // a public server must not fork one per request without limit).
+    let _permit = RESOLVE_SLOTS.acquire().await.map_err(|e| Error::Msg(e.to_string()))?;
     let output = ytdlp_cmd(&bin)
+        .args(extra_args())
         .args([
             "-f",
             "bestaudio[protocol^=http]/bestaudio",

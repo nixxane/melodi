@@ -10,7 +10,6 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::{AppHandle, Emitter, Manager};
 
 use crate::innertube::{InnerTube, Item};
 use crate::Error;
@@ -18,7 +17,7 @@ use crate::Error;
 /// Tracks matched at the same time.
 const PARALLEL: usize = 4;
 
-/// HTTP client for Spotify's public pages (managed Tauri state).
+/// HTTP client for Spotify's public pages.
 pub struct Spotify {
     pub http: reqwest::Client,
 }
@@ -59,9 +58,9 @@ pub struct Imported {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct Progress {
-    done: usize,
-    total: usize,
+pub struct Progress {
+    pub done: usize,
+    pub total: usize,
 }
 
 /// Recognise open.spotify.com/{playlist|album|track}/ID links (with or
@@ -255,8 +254,11 @@ async fn match_one(it: &InnerTube, t: &Track) -> Option<Item> {
         .map(|(_, c)| c)
 }
 
-/// Match every track, emitting `import-progress` as it goes. Order is kept.
-pub async fn match_all(app: &AppHandle, list: SourceList) -> Imported {
+/// Progress callback: (done, total).
+pub type OnProgress = Arc<dyn Fn(Progress) + Send + Sync>;
+
+/// Match every track, reporting progress as it goes. Order is kept.
+pub async fn match_all(it: &Arc<InnerTube>, list: SourceList, on_progress: OnProgress) -> Imported {
     let total = list.tracks.len();
     let done = Arc::new(AtomicUsize::new(0));
     let tracks = Arc::new(list.tracks);
@@ -265,9 +267,9 @@ pub async fn match_all(app: &AppHandle, list: SourceList) -> Imported {
     let next = Arc::new(AtomicUsize::new(0));
     let mut workers = Vec::new();
     for _ in 0..PARALLEL.min(total.max(1)) {
-        let (app, tracks, next, done) = (app.clone(), tracks.clone(), next.clone(), done.clone());
-        workers.push(tauri::async_runtime::spawn(async move {
-            let it = app.state::<InnerTube>();
+        let (it, tracks, next, done, on_progress) =
+            (it.clone(), tracks.clone(), next.clone(), done.clone(), on_progress.clone());
+        workers.push(tokio::spawn(async move {
             let mut found = Vec::new();
             loop {
                 let i = next.fetch_add(1, Ordering::Relaxed);
@@ -276,7 +278,7 @@ pub async fn match_all(app: &AppHandle, list: SourceList) -> Imported {
                 }
                 found.push((i, match_one(&it, &tracks[i]).await));
                 let d = done.fetch_add(1, Ordering::Relaxed) + 1;
-                let _ = app.emit("import-progress", Progress { done: d, total: tracks.len() });
+                on_progress(Progress { done: d, total: tracks.len() });
             }
             found
         }));

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { call as invoke, isDesktop, listen } from "./platform";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import type { Item } from "../types";
@@ -27,6 +26,7 @@ export function useDesktop(track: Item | null, closeToTray: boolean, handlers: H
   h.current = handlers;
 
   useEffect(() => {
+    if (!isDesktop) return;
     invoke<boolean>("tray_available")
       .then(setTrayAvailable)
       .catch(() => setTrayAvailable(false));
@@ -46,12 +46,12 @@ export function useDesktop(track: Item | null, closeToTray: boolean, handlers: H
   }, []);
 
   useEffect(() => {
-    invoke("set_close_to_tray", { enabled: closeToTray }).catch(() => {});
+    if (isDesktop) invoke("set_close_to_tray", { enabled: closeToTray }).catch(() => {});
   }, [closeToTray]);
 
   useEffect(() => {
     const text = track ? `${track.title} — ${artistLabel(track)}` : "";
-    invoke("set_tray_tooltip", { text }).catch(() => {});
+    if (isDesktop) invoke("set_tray_tooltip", { text }).catch(() => {});
   }, [track]);
 
   const enterMini = useCallback(async () => {
@@ -83,5 +83,6 @@ export function useDesktop(track: Item | null, closeToTray: boolean, handlers: H
     setMini(false);
   }, []);
 
-  return { trayAvailable, mini, enterMini, exitMini };
+  /** The mini player resizes the native window, so it's desktop-only. */
+  return { trayAvailable, mini, enterMini: isDesktop ? enterMini : undefined, exitMini };
 }
