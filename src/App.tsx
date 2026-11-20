@@ -27,6 +27,8 @@ import { useQueue } from "./lib/useQueue";
 import { useSearch } from "./lib/useSearch";
 import { useToasts } from "./lib/useToasts";
 import { useShortcuts } from "./lib/useShortcuts";
+import { usePhone } from "./lib/usePhone";
+import { MobileNav } from "./components/MobileNav";
 import { useMediaSession } from "./lib/useMediaSession";
 import { useRecent } from "./lib/useRecent";
 import { useDiscordPresence } from "./lib/useDiscordPresence";
@@ -50,6 +52,22 @@ export default function App() {
   const topView = (TOP_LEVEL.has(route.name) ? route.name : null) as View | null;
   const searchInput = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // Phone layout: bottom tabs, the sidebar as a "library" drawer, and a
+  // compact player that opens a full-screen "now playing".
+  const phone = usePhone();
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [nowOpen, setNowOpen] = useState(false);
+  useEffect(() => {
+    setLibraryOpen(false);
+    setNowOpen(false);
+  }, [route]);
+  useEffect(() => {
+    if (!phone) {
+      setLibraryOpen(false);
+      setNowOpen(false);
+    }
+  }, [phone]);
 
   const [status, setStatus] = useState<BackendStatus | null>(null);
   const [settingUp, setSettingUp] = useState(false);
@@ -389,7 +407,9 @@ export default function App() {
           onOpenLiked={() => go({ name: "liked" })}
           settingsOpen={route.name === "settings"}
           onOpenSettings={() => go({ name: "settings" })}
+          drawerOpen={phone && libraryOpen}
         />
+        {phone && libraryOpen ? <div className="drawer-backdrop" onClick={() => setLibraryOpen(false)} /> : null}
 
         <main className="main panel">
           <span className="panel-title">{panelTitle}</span>
@@ -665,7 +685,31 @@ export default function App() {
           sleepLabel={sleep.label}
           onSleep={sleep.cycle}
           onMini={desktop.enterMini}
+          phone={phone}
+          expanded={phone && nowOpen}
+          onExpand={() => setNowOpen(true)}
+          onCollapse={() => setNowOpen(false)}
         />
+
+        {phone ? (
+          <MobileNav
+            view={topView}
+            libraryOpen={libraryOpen}
+            settingsOpen={route.name === "settings"}
+            queueCount={queue.queue.length}
+            onNavigate={(v) => {
+              setLibraryOpen(false);
+              // Search: show the page without popping the keyboard over it.
+              if (v === "search") go({ name: "search" });
+              else navigate(v);
+            }}
+            onLibrary={() => setLibraryOpen((o) => !o)}
+            onSettings={() => {
+              setLibraryOpen(false);
+              go({ name: "settings" });
+            }}
+          />
+        ) : null}
 
         <StatusLine
           view={panelTitle}

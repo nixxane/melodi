@@ -2128,3 +2128,349 @@ kbd {
     opacity: 0.55;
   }
 }
+
+/* =========================================================================
+   Phone layout (≤ 720px; keep in sync with PHONE_QUERY in lib/usePhone.ts)
+   Bottom tab bar, the sidebar as a slide-in "library" drawer, a compact
+   player bar that opens a full-screen "now playing", and touch-sized rows.
+   ========================================================================= */
+.mobile-nav,
+.more-btn,
+.mini-progress,
+.np-close {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    gap: 6px;
+    height: 100vh;
+    height: 100dvh;
+    padding: calc(env(safe-area-inset-top) + 8px) calc(env(safe-area-inset-right) + 4px) 0
+      calc(env(safe-area-inset-left) + 4px);
+  }
+  .main {
+    grid-column: 1;
+  }
+  .statusline {
+    display: none;
+  }
+  /* iOS zooms into inputs with text under 16px. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  .topbar {
+    padding: 14px 10px 8px;
+  }
+  .content {
+    padding: 12px 10px 20px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .kbtn {
+    min-height: 32px;
+  }
+
+  /* ---- library drawer (the desktop sidebar) ---- */
+  .sidebar {
+    position: fixed;
+    z-index: 50;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(82vw, 300px);
+    padding: calc(env(safe-area-inset-top) + 18px) 10px calc(env(safe-area-inset-bottom) + 12px)
+      calc(env(safe-area-inset-left) + 10px);
+    background: var(--bg);
+    border-width: 0 1px 0 0;
+    transform: translateX(-102%);
+    transition: transform 0.2s ease;
+    overflow-y: auto;
+  }
+  .sidebar.open {
+    transform: none;
+  }
+  .sidebar .panel-title {
+    top: calc(env(safe-area-inset-top) - 1px);
+  }
+  .sidebar .nav-item {
+    padding: 8px;
+  }
+  .drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    background: rgba(0, 0, 0, 0.55);
+  }
+
+  /* ---- bottom tab bar ---- */
+  .mobile-nav {
+    grid-column: 1;
+    grid-row: 3;
+    display: flex;
+    margin: 0 calc(-4px - env(safe-area-inset-right)) 0 calc(-4px - env(safe-area-inset-left));
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    background: var(--bg-2);
+    border-top: 1px solid var(--line);
+  }
+  .mnav-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 7px 0 6px;
+    color: var(--dim);
+    line-height: 1.2;
+  }
+  .mnav-glyph {
+    font-size: 17px;
+  }
+  .mnav-label {
+    font-size: 11px;
+  }
+  .mnav-badge {
+    color: var(--faint);
+  }
+  .mnav-tab.active {
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .mnav-tab.active .mnav-glyph {
+    text-shadow: 0 0 8px var(--accent-dim);
+  }
+
+  /* ---- compact player bar ---- */
+  .playerbar {
+    grid-column: 1;
+    grid-row: 2;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 10px 8px 8px;
+    overflow: hidden;
+  }
+  .playerbar .panel-title {
+    display: none;
+  }
+  .playerbar .now-playing {
+    gap: 10px;
+    cursor: pointer;
+  }
+  .playerbar .now-thumb {
+    width: 44px;
+    height: 44px;
+  }
+  .playerbar .player-center {
+    flex-direction: row;
+  }
+  .playerbar .seek,
+  .playerbar .player-right,
+  .playerbar .shuf-btn,
+  .playerbar .prev-btn,
+  .playerbar .rep-btn,
+  .playerbar .play-label {
+    display: none;
+  }
+  .playerbar .transport .kbtn {
+    min-width: 44px;
+    min-height: 40px;
+    justify-content: center;
+    font-size: 16px;
+  }
+  .playerbar .transport .kbtn::before,
+  .playerbar .transport .kbtn::after {
+    display: none;
+  }
+  .mini-progress {
+    display: block;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 2px;
+    background: var(--line);
+  }
+  .mini-progress span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.25s linear;
+  }
+
+  /* ---- full-screen "now playing" ---- */
+  .playerbar.expanded {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: 18px;
+    padding: calc(env(safe-area-inset-top) + 52px) 22px calc(env(safe-area-inset-bottom) + 24px);
+    border: 0;
+    background: var(--bg);
+    overflow-y: auto;
+    animation: sheet-up 0.2s ease;
+  }
+  .playerbar.expanded .np-close {
+    display: inline-flex;
+    position: absolute;
+    top: calc(env(safe-area-inset-top) + 10px);
+    left: 12px;
+    min-height: 40px;
+  }
+  .playerbar.expanded .now-playing {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    cursor: default;
+  }
+  .playerbar.expanded .now-thumb {
+    width: min(100%, 46vh);
+    height: auto;
+    aspect-ratio: 1;
+    align-self: center;
+  }
+  .playerbar.expanded .now-title {
+    font-size: 18px;
+  }
+  .playerbar.expanded .now-artist {
+    font-size: 15px;
+  }
+  .playerbar.expanded .like-btn {
+    font-size: 22px;
+    min-width: 44px;
+    min-height: 40px;
+  }
+  .playerbar.expanded .player-center {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .playerbar.expanded .seek {
+    display: flex;
+    width: 100%;
+  }
+  .playerbar.expanded .transport {
+    justify-content: space-between;
+  }
+  .playerbar.expanded .shuf-btn,
+  .playerbar.expanded .prev-btn,
+  .playerbar.expanded .rep-btn {
+    display: inline-flex;
+  }
+  .playerbar.expanded .transport .kbtn {
+    font-size: 15px;
+    min-height: 48px;
+  }
+  .playerbar.expanded .transport .play {
+    min-width: 72px;
+    font-size: 22px;
+    color: var(--accent-ink);
+    background: var(--accent);
+  }
+  .playerbar.expanded .player-right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  /* Phones change the volume with their own buttons. */
+  .playerbar.expanded .vol {
+    display: none;
+  }
+  .playerbar.expanded .player-tools {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px 4px;
+    max-width: none;
+  }
+  @keyframes sheet-up {
+    from {
+      transform: translateY(24px);
+      opacity: 0;
+    }
+  }
+
+  /* ---- track lists: two-line rows, actions behind "⋯" ---- */
+  .track-head {
+    display: none;
+  }
+  .track-row,
+  .with-thumbs .track-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "title actions"
+      "artist actions";
+    gap: 0 10px;
+    height: auto;
+    min-height: 52px;
+    padding: 7px 4px 7px 8px;
+    line-height: 19px;
+  }
+  .with-thumbs .track-row {
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "thumb title actions"
+      "thumb artist actions";
+  }
+  .track-row .idx,
+  .track-row .track-duration {
+    display: none;
+  }
+  .track-row .row-thumb {
+    grid-area: thumb;
+    width: 42px;
+    height: 42px;
+  }
+  .track-row .col-title {
+    grid-area: title;
+    align-self: end;
+  }
+  .track-row .col-artist {
+    grid-area: artist;
+    align-self: start;
+  }
+  .track-row .row-actions {
+    grid-area: actions;
+    visibility: visible;
+    align-self: center;
+  }
+  .track-row .row-btn {
+    display: none;
+  }
+  .track-row .more-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    color: var(--dim);
+  }
+
+  /* Settings: label above its controls. */
+  .set-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    padding: 10px 4px;
+  }
+  .set-select {
+    max-width: 100%;
+  }
+
+  /* Touch: menus get finger-sized items. */
+  .ctx-item {
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+  .shelf-arrow {
+    display: none;
+  }
+}

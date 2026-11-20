@@ -18,6 +18,8 @@ interface Props {
   onOpenLiked: () => void;
   settingsOpen: boolean;
   onOpenSettings: () => void;
+  /** Phone layout: shown as a slide-in drawer. */
+  drawerOpen?: boolean;
 }
 
 const ITEMS: { id: View; key: string; label: string }[] = [
@@ -42,6 +44,7 @@ export function Sidebar({
   onOpenLiked,
   settingsOpen,
   onOpenSettings,
+  drawerOpen,
 }: Props) {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
@@ -53,7 +56,7 @@ export function Sidebar({
   };
 
   return (
-    <aside className="sidebar panel">
+    <aside className={`sidebar panel ${drawerOpen ? "open" : ""}`}>
       <span className="panel-title">melodi</span>
 
       <nav className="nav" aria-label="Main">

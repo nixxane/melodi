@@ -90,6 +90,8 @@ export function applyVisuals(s: Settings) {
   el.dataset.theme = s.theme;
   el.dataset.size = s.textSize;
   el.dataset.scanlines = s.scanlines ? "on" : "off";
+  const bg = getComputedStyle(el).getPropertyValue("--bg").trim();
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", bg || "#0b0a08");
 }
 
 export function useSettingsState() {

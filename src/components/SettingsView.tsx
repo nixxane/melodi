@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { appVersion, isDesktop, openExternal } from "../lib/platform";
+import { appVersion, isDesktop, isMobile, openExternal } from "../lib/platform";
 import type { BackendStatus, CacheInfo } from "../types";
 import { audioCacheInfo, clearAudioCache } from "../api";
 import { EQ_FREQS, EQ_PRESETS } from "../lib/audioEngine";
@@ -244,51 +244,60 @@ export function SettingsView({
 
       <section className="set-section">
         <h2 className="view-title">sound</h2>
-        <Row label="normalize volume" hint="play every song at a similar loudness, using youtube's loudness data">
-          <Toggle on={settings.normalize} onChange={(v) => update({ normalize: v })} label="even out loudness" />
-        </Row>
-        <Row label="crossfade" hint="blend the end of each song into the next">
-          {CROSSFADES.map((x) => (
-            <button
-              key={x}
-              className={`kbtn ${settings.crossfade === x ? "on" : ""}`}
-              aria-pressed={settings.crossfade === x}
-              onClick={() => update({ crossfade: x })}
-            >
-              {x === 0 ? "off" : `${x}s`}
-            </button>
-          ))}
-        </Row>
-        <Row label="equalizer" hint="boost or cut bass, mids and treble">
-          <div className="eqz">
-            <div className="eqz-presets">
-              {EQ_PRESETS.map((p) => (
+        {isMobile ? (
+          <p className="set-hint set-note">
+            on phones melodi plays through the system player, so music keeps going with the screen off.
+            equalizer, crossfade and loudness levelling are on the desktop app and desktop browsers.
+          </p>
+        ) : (
+          <>
+            <Row label="normalize volume" hint="play every song at a similar loudness, using youtube's loudness data">
+              <Toggle on={settings.normalize} onChange={(v) => update({ normalize: v })} label="even out loudness" />
+            </Row>
+            <Row label="crossfade" hint="blend the end of each song into the next">
+              {CROSSFADES.map((x) => (
                 <button
-                  key={p.id}
-                  className={`kbtn ${settings.eqPreset === p.id ? "on" : ""}`}
-                  aria-pressed={settings.eqPreset === p.id}
-                  onClick={() => update({ eqPreset: p.id, eq: p.bands })}
+                  key={x}
+                  className={`kbtn ${settings.crossfade === x ? "on" : ""}`}
+                  aria-pressed={settings.crossfade === x}
+                  onClick={() => update({ crossfade: x })}
                 >
-                  {p.name}
+                  {x === 0 ? "off" : `${x}s`}
                 </button>
               ))}
-              {settings.eqPreset === "custom" ? <span className="kbtn on">custom</span> : null}
-            </div>
-            {EQ_FREQS.map((f, i) => (
-              <EqBand
-                key={f}
-                freq={f}
-                db={settings.eq[i] ?? 0}
-                onChange={(db) => {
-                  const eq = settings.eq.slice();
-                  eq[i] = db;
-                  const match = EQ_PRESETS.find((p) => p.bands.every((b, j) => b === eq[j]));
-                  update({ eq, eqPreset: match?.id ?? "custom" });
-                }}
-              />
-            ))}
-          </div>
-        </Row>
+            </Row>
+            <Row label="equalizer" hint="boost or cut bass, mids and treble">
+              <div className="eqz">
+                <div className="eqz-presets">
+                  {EQ_PRESETS.map((p) => (
+                    <button
+                      key={p.id}
+                      className={`kbtn ${settings.eqPreset === p.id ? "on" : ""}`}
+                      aria-pressed={settings.eqPreset === p.id}
+                      onClick={() => update({ eqPreset: p.id, eq: p.bands })}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                  {settings.eqPreset === "custom" ? <span className="kbtn on">custom</span> : null}
+                </div>
+                {EQ_FREQS.map((f, i) => (
+                  <EqBand
+                    key={f}
+                    freq={f}
+                    db={settings.eq[i] ?? 0}
+                    onChange={(db) => {
+                      const eq = settings.eq.slice();
+                      eq[i] = db;
+                      const match = EQ_PRESETS.find((p) => p.bands.every((b, j) => b === eq[j]));
+                      update({ eq, eqPreset: match?.id ?? "custom" });
+                    }}
+                  />
+                ))}
+              </div>
+            </Row>
+          </>
+        )}
         {isDesktop && (
           <Row
             label="offline cache"

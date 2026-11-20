@@ -24,6 +24,11 @@ interface Props {
   onSleep: () => void;
   /** Absent where there's no mini player (the web). */
   onMini?: () => void;
+  /** Phone layout: a compact bar that opens a full-screen "now playing". */
+  phone?: boolean;
+  expanded?: boolean;
+  onExpand?: () => void;
+  onCollapse?: () => void;
 }
 
 /** How many monospace character cells fit in an element's width. */
@@ -71,6 +76,10 @@ export function PlayerBar({
   onSleep,
   onMini,
   onLyrics,
+  phone = false,
+  expanded = false,
+  onExpand,
+  onCollapse,
 }: Props) {
   const actions = useActions();
   const { track, isPlaying, isLoading, currentTime, volume, isLive } = player;
@@ -126,12 +135,27 @@ export function PlayerBar({
         : "paused";
 
   return (
-    <footer className="playerbar panel" ref={barRef}>
+    <footer className={`playerbar panel ${phone ? "phone" : ""} ${expanded ? "expanded" : ""}`} ref={barRef}>
       <span className="panel-title">
         {isPlaying ? "▶" : track ? "❚❚" : "■"} {panelTitle}
       </span>
+      {phone && expanded ? (
+        <button className="kbtn np-close" onClick={onCollapse} aria-label="Close now playing">
+          ▾ close
+        </button>
+      ) : null}
+      {phone && !expanded && track ? (
+        <div className="mini-progress" aria-hidden="true">
+          <span style={{ width: `${isLive ? 100 : frac * 100}%` }} />
+        </div>
+      ) : null}
 
-      <div className="now-playing">
+      <div
+        className="now-playing"
+        onClick={phone && !expanded && track ? onExpand : undefined}
+        role={phone && !expanded && track ? "button" : undefined}
+        aria-label={phone && !expanded && track ? "Open now playing" : undefined}
+      >
         <div className="now-thumb">
           <Art thumbnails={track?.thumbnails} size={192} eager />
         </div>
@@ -143,7 +167,10 @@ export function PlayerBar({
             {track ? (
               <button
                 className={`like-btn ${actions.isLiked(track.video_id) ? "on" : ""}`}
-                onClick={() => actions.toggleLike(track)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  actions.toggleLike(track);
+                }}
                 aria-pressed={actions.isLiked(track.video_id)}
                 aria-label={actions.isLiked(track.video_id) ? "Unlike" : "Like"}
                 title={actions.isLiked(track.video_id) ? "Unlike (F)" : "Like (F)"}
@@ -156,7 +183,12 @@ export function PlayerBar({
             {track?.artist_id ? (
               <button
                 className="link"
-                onClick={() => actions.openArtist(track.artist_id!, track.artists[0] ?? artistLabel(track))}
+                onClick={(e) => {
+                  if (phone && !expanded) return; // the whole bar opens "now playing"
+                  e.stopPropagation();
+                  onCollapse?.();
+                  actions.openArtist(track.artist_id!, track.artists[0] ?? artistLabel(track));
+                }}
               >
                 {artistLabel(track)}
               </button>
@@ -172,7 +204,7 @@ export function PlayerBar({
       <div className="player-center">
         <div className="transport">
           <button
-            className={`kbtn ${shuffle ? "on" : ""}`}
+            className={`kbtn shuf-btn ${shuffle ? "on" : ""}`}
             onClick={onShuffle}
             aria-label="Shuffle"
             aria-pressed={shuffle}
@@ -181,7 +213,7 @@ export function PlayerBar({
             shuf
           </button>
           <button
-            className="kbtn"
+            className="kbtn prev-btn"
             onClick={onPrev}
             disabled={!prevEnabled}
             aria-label="Previous"
@@ -200,7 +232,7 @@ export function PlayerBar({
             <span className="play-label">{isLoading ? "load" : isPlaying ? "pause" : "play"}</span>
           </button>
           <button
-            className="kbtn"
+            className="kbtn next-btn"
             onClick={onNext}
             disabled={!canNext}
             aria-label="Next"
@@ -209,7 +241,7 @@ export function PlayerBar({
             ▶|
           </button>
           <button
-            className={`kbtn ${repeat !== "off" ? "on" : ""}`}
+            className={`kbtn rep-btn ${repeat !== "off" ? "on" : ""}`}
             onClick={onRepeat}
             aria-label={repeatLabel}
             aria-pressed={repeat !== "off"}

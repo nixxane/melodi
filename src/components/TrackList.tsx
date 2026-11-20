@@ -199,6 +199,18 @@ export function TrackList({
                 {onRemove && !isCurrent
                   ? action("del", removeLabel, () => onRemove(item, i), true)
                   : null}
+                <button
+                  className="row-btn more-btn"
+                  title="More"
+                  aria-label={`More options for ${item.title}`}
+                  tabIndex={-1}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    ctx.open(e, menuFor(item, i));
+                  }}
+                >
+                  ⋯
+                </button>
               </span>
               <span className="track-duration">
                 {item.duration_ms != null ? formatTime(item.duration_ms) : "--:--"}

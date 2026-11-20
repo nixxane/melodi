@@ -12,7 +12,14 @@
  * Songs come through Melodi's local proxy, which adds the CORS headers Web
  * Audio needs. If the graph can't be built, the decks still play, with the
  * volume applied to the elements directly.
+ *
+ * Phones get no graph at all ("mobile audio mode"): iOS and some Android
+ * browsers suspend an AudioContext once the app is in the background, which
+ * would silence the music. Plain <audio> keeps playing on the lock screen, so
+ * there EQ, normalization and crossfade are off.
  */
+import { isMobile } from "./platform";
+
 
 export const EQ_FREQS = [60, 150, 400, 1000, 2400, 6000, 15000];
 export type EqBands = number[];
@@ -58,6 +65,10 @@ class Engine {
       return { el, gain: null, norm: 1 };
     };
     this.decks = [mk(), mk()];
+    if (isMobile) {
+      this.applyMaster();
+      return;
+    }
     try {
       const ctx = new AudioContext({ latencyHint: "playback" });
       const master = ctx.createGain();

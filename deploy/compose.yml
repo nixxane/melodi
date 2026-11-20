@@ -1,0 +1,41 @@
+# Melodi's API server on your VPS, reachable through a Cloudflare Tunnel
+# (no open ports, no certificates to manage). See deploy/README.md.
+#
+#   cp .env.example .env    # fill it in
+#   docker compose up -d
+#
+# Update to the newest build:
+#   docker compose pull && docker compose up -d
+
+services:
+  melodi:
+    image: ghcr.io/nixxane/melodi-server:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MELODI_TRUST_PROXY: cloudflare
+    volumes:
+      # Named volume: yt-dlp and the song cache survive updates.
+      - melodi-data:/data
+    # The tunnel reaches the server inside Docker's own network (melodi:8080),
+    # so nothing needs a port on the VPS itself. This one is only for checking
+    # from the VPS (curl localhost:8737/api/health); it's an uncommon port so
+    # it won't clash with other apps, and 127.0.0.1 keeps it off the internet.
+    ports:
+      - "127.0.0.1:8737:8080"
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  tunnel:
+    image: cloudflare/cloudflared:2026.11.1
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    depends_on:
+      - melodi
+
+volumes:
+  melodi-data:

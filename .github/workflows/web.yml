@@ -1,0 +1,53 @@
+name: Web app
+
+# Builds the web app / PWA and publishes it to Cloudflare Pages
+# (app.getmelodi.xyz) whenever the UI changes on main.
+#
+# Needs repository secrets CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID and
+# the repository variable MELODI_API_URL (e.g. https://api.getmelodi.xyz).
+# Without the token the build still runs, but nothing is published.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "index.html"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "vite.config.ts"
+      - "tsconfig*.json"
+      - ".github/workflows/web.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: web-app
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+        env:
+          VITE_MELODI_API: ${{ vars.MELODI_API_URL }}
+      - name: Publish to Cloudflare Pages
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=melodi --branch=main

@@ -1,0 +1,5 @@
+# Only the Rust crates go into the server image.
+*
+!crates/melodi-core/
+!crates/melodi-server/
+crates/*/target/

@@ -11,6 +11,23 @@ import { listen as tauriListen } from "@tauri-apps/api/event";
 export const isDesktop = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 export const isWeb = !isDesktop;
 
+/** A phone or tablet browser (iPadOS reports itself as a Mac with touch). */
+export const isMobile =
+  isWeb &&
+  typeof navigator !== "undefined" &&
+  (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1));
+
+/** iPhone / iPad: the page can't set the volume (only the hardware buttons can). */
+export const isIOS =
+  isMobile && (/iPhone|iPad|iPod/i.test(navigator.userAgent) || /Macintosh/.test(navigator.userAgent));
+
+/** Opened from the home screen as an installed app. */
+export const isStandalone =
+  typeof window !== "undefined" &&
+  (window.matchMedia?.("(display-mode: standalone)").matches ||
+    (navigator as unknown as { standalone?: boolean }).standalone === true);
+
 /** melodi-server's address; empty means the page's own origin. */
 const API_BASE = ((import.meta.env.VITE_MELODI_API as string | undefined) ?? "").replace(/\/$/, "");
 

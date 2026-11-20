@@ -37,16 +37,36 @@ export const fetchLyrics = (item: Item, artist: string) =>
 export const resolveStream = (videoId: string, forceRefresh = false) =>
   invoke<StreamInfo>("resolve_stream", { videoId, forceRefresh });
 
+/**
+ * Next songs already prepared on the web, so the next track starts without a
+ * round trip. On a phone with the screen off, the page may be suspended soon
+ * after a song ends; starting the next one straight away keeps the music going.
+ */
+const prepared = new Map<string, { info: PreparedStream; at: number }>();
+const PREPARED_TTL_MS = 2 * 60 * 60 * 1000;
+
 /** Warm the backend stream cache. Never rejects. */
 export const prefetchStream = (videoId: string) => {
   invoke("prefetch_stream", { videoId }).catch(() => {});
+  if (!isDesktop && !prepared.has(videoId)) {
+    invoke<PreparedStream>("prepare_stream", { videoId, forceRefresh: false })
+      .then((info) => {
+        if (prepared.size > 20) prepared.clear();
+        prepared.set(videoId, { info, at: Date.now() });
+      })
+      .catch(() => {});
+  }
 };
 
 export const backendStatus = () => invoke<BackendStatus>("backend_status");
 
 /** Resolve a song and get its local proxy URL + loudness. */
-export const prepareStream = (videoId: string, forceRefresh = false) =>
-  invoke<PreparedStream>("prepare_stream", { videoId, forceRefresh });
+export const prepareStream = (videoId: string, forceRefresh = false) => {
+  const hit = prepared.get(videoId);
+  prepared.delete(videoId);
+  if (hit && !forceRefresh && Date.now() - hit.at < PREPARED_TTL_MS) return Promise.resolve(hit.info);
+  return invoke<PreparedStream>("prepare_stream", { videoId, forceRefresh });
+};
 
 /** Offline cache size limit in MB (0 = off). */
 /** The offline cache lives on the desktop; the web server manages its own. */
