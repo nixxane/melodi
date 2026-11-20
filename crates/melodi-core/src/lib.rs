@@ -9,6 +9,7 @@ pub mod live;
 pub mod lyrics;
 pub mod spotify;
 pub mod ytdlp;
+pub mod ytdlp_worker;
 
 /// Crate-wide error type shared by the InnerTube client and the yt-dlp backend.
 #[derive(Debug, thiserror::Error)]

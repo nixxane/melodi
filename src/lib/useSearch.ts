@@ -1,11 +1,13 @@
 import { useCallback, useRef, useState } from "react";
-import { search as searchApi } from "../api";
+import { search as searchApi, warmStream } from "../api";
 import type { Item } from "../types";
 import { friendlyError } from "./format";
 import { loadJSON, saveJSON } from "./storage";
 
 const HISTORY_KEY = "melodi.searches";
 const MAX_HISTORY = 8;
+/** Results must stay unchanged this long before the top song is looked up. */
+const WARM_AFTER_MS = 700;
 
 export function useSearch(onError: (msg: string) => void, onActive: () => void) {
   const [query, setQuery] = useState("");
@@ -44,6 +46,15 @@ export function useSearch(onError: (msg: string) => void, onActive: () => void) 
         const r = await searchApi(q);
         if (id !== requestId.current) return; // stale response
         setResults(r);
+        // Start looking up the top song if the query has settled, so tapping
+        // it plays sooner. Waits so typing doesn't look up every keystroke.
+        const top = r.find((x) => x.video_id && (x.kind === "song" || x.kind === "video"));
+        if (top === r[0] && top?.video_id) {
+          const vid = top.video_id;
+          window.setTimeout(() => {
+            if (id === requestId.current) warmStream(vid);
+          }, WARM_AFTER_MS);
+        }
       } catch (e) {
         if (id !== requestId.current) return;
         setResults([]);

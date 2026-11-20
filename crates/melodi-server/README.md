@@ -35,6 +35,7 @@ The user's language / region travel as `X-Melodi-Hl` / `X-Melodi-Gl` headers.
 | `MELODI_TRUST_PROXY` | none | `cloudflare` (use `CF-Connecting-IP`) or `forwarded` (`X-Forwarded-For`) for rate limits |
 | `MELODI_WEB_DIR` | — | Also serve the built web app (`dist/`) from this server |
 | `MELODI_YTDLP_ARGS` | — | Extra yt-dlp arguments, e.g. `--cookies /data/cookies.txt` if YouTube asks to "confirm you're not a bot" |
+| `MELODI_YTDLP_WORKERS` | `0` (Docker image: `3`) | Long-running yt-dlp processes; saves ~1.5 s per new song. Needs `python3` and the Linux (zipapp) yt-dlp |
 | `MELODI_YTDLP_CONCURRENCY` | `6` | yt-dlp processes at once |
 | `MELODI_YTDLP` | — | Use this yt-dlp instead of downloading one |
 

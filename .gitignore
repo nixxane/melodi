@@ -23,3 +23,4 @@ POLISH_PLAN.md
 
 # Server / core builds
 crates/*/target/
+crates/melodi-core/Cargo.lock

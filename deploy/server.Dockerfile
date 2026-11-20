@@ -27,8 +27,11 @@ COPY --from=build /usr/local/bin/melodi-server /usr/local/bin/melodi-server
 RUN useradd --system --create-home --home-dir /data melodi
 USER melodi
 WORKDIR /data
+# Three long-running yt-dlp processes resolve songs (faster than starting
+# yt-dlp per song; see crates/melodi-core/src/ytdlp_worker.rs).
 ENV MELODI_ADDR=0.0.0.0:8080 \
-    MELODI_DATA_DIR=/data
+    MELODI_DATA_DIR=/data \
+    MELODI_YTDLP_WORKERS=3
 VOLUME /data
 EXPOSE 8080
 

@@ -261,6 +261,7 @@ fn friendly_error(stderr: &str) -> String {
     {
         "Not available in your region".into()
     } else if s.contains("video unavailable")
+        || s.contains("video is unavailable")
         || s.contains("private video")
         || s.contains("has been removed")
         || s.contains("no longer available")
@@ -367,6 +368,9 @@ pub async fn maybe_update(app_data_dir: &Path, after_failure: bool) -> bool {
         Ok(Ok(out)) => {
             let text = String::from_utf8_lossy(&out.stdout);
             let updated = out.status.success() && text.contains("Updated yt-dlp to");
+            if updated {
+                crate::ytdlp_worker::recycle();
+            }
             eprintln!("[melodi] yt-dlp update check: {}", text.lines().last().unwrap_or("").trim());
             updated
         }
@@ -395,45 +399,86 @@ fn extra_args() -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// yt-dlp options shared by the per-song command and the worker pool.
+fn base_args() -> Vec<String> {
+    let mut a = extra_args();
+    a.extend(
+        ["-f", "bestaudio[protocol^=http]/bestaudio", "--no-warnings", "--no-playlist", "--no-part", "--no-cache-dir"]
+            .map(String::from),
+    );
+    a
+}
+
+/// Songs only use the plain audio file, so the HLS playlist (most of a
+/// second per song) is skipped; live streams are HLS-only and fall back.
+const SKIP_HLS: [&str; 2] = ["--extractor-args", "youtube:skip=hls"];
+
+/// yt-dlp found no usable format: retry with HLS (a live stream).
+fn needs_hls(err: &str) -> bool {
+    err.contains("format is not available") || err.contains("No video formats")
+}
+
 async fn resolve_once(app_data_dir: &Path, video_id: &str) -> Result<StreamInfo, Error> {
     let bin = ensure(app_data_dir).await?;
-    let target = format!("https://music.youtube.com/watch?v={video_id}");
 
     // Caps how many yt-dlp processes run at once (each is a Python process;
     // a public server must not fork one per request without limit).
     let _permit = RESOLVE_SLOTS.acquire().await.map_err(|e| Error::Msg(e.to_string()))?;
-    let output = ytdlp_cmd(&bin)
-        .args(extra_args())
-        .args([
-            "-f",
-            "bestaudio[protocol^=http]/bestaudio",
-            "--no-warnings",
-            "--no-playlist",
-            "--no-part",
-            "--no-cache-dir",
-            "-g",
-            &target,
-        ])
-        .output()
-        .await?;
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        eprintln!(
-            "[melodi] yt-dlp failed for {video_id}: {}",
-            truncate_lines(&stderr, 600)
-        );
-        return Err(Error::Msg(friendly_error(&stderr)));
-    }
+    let result = match crate::ytdlp_worker::pool_for(&bin) {
+        Some(pool) => match pool.resolve(app_data_dir, &bin, &base_args(), video_id).await {
+            Ok(crate::ytdlp_worker::Answer::Url(url)) => Ok(url),
+            // yt-dlp's own errors start with "ERROR:"; anything else means the
+            // worker itself is broken, so fall back to running yt-dlp directly.
+            Ok(crate::ytdlp_worker::Answer::Failed(err)) if err.starts_with("ERROR") => Err(err),
+            Ok(crate::ytdlp_worker::Answer::Failed(err)) => {
+                eprintln!("[melodi] yt-dlp worker problem, running yt-dlp directly: {err}");
+                run_cli_with_fallback(&bin, video_id).await?
+            }
+            Err(e) => {
+                eprintln!("[melodi] yt-dlp worker problem, running yt-dlp directly: {e}");
+                run_cli_with_fallback(&bin, video_id).await?
+            }
+        },
+        None => run_cli_with_fallback(&bin, video_id).await?,
+    };
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let url = stdout.lines().next().unwrap_or("").trim().to_string();
+    let url = match result {
+        Ok(url) => url,
+        Err(err) => {
+            eprintln!("[melodi] yt-dlp failed for {video_id}: {}", truncate_lines(&err, 600));
+            return Err(Error::Msg(friendly_error(&err)));
+        }
+    };
     if url.is_empty() {
         return Err(Error::Msg(GENERIC_FAILURE.into()));
     }
-
     let hls = url.contains("/api/manifest/") || url.contains(".m3u8");
     Ok(StreamInfo { url, hls })
+}
+
+/// Run yt-dlp for one song, retrying with HLS for live streams.
+async fn run_cli_with_fallback(bin: &Path, video_id: &str) -> Result<Result<String, String>, Error> {
+    match run_cli(bin, video_id, true).await? {
+        Err(err) if needs_hls(&err) => run_cli(bin, video_id, false).await,
+        other => Ok(other),
+    }
+}
+
+/// One yt-dlp run for one song: Ok(Ok(url)) or Ok(Err(yt-dlp's stderr)).
+async fn run_cli(bin: &Path, video_id: &str, skip_hls: bool) -> Result<Result<String, String>, Error> {
+    let target = format!("https://music.youtube.com/watch?v={video_id}");
+    let mut cmd = ytdlp_cmd(bin);
+    cmd.args(base_args());
+    if skip_hls {
+        cmd.args(SKIP_HLS);
+    }
+    let output = cmd.args(["-g", &target]).output().await?;
+    if !output.status.success() {
+        return Ok(Err(String::from_utf8_lossy(&output.stderr).into_owned()));
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    Ok(Ok(stdout.lines().next().unwrap_or("").trim().to_string()))
 }
 
 pub async fn version_of(bin: &Path) -> Option<String> {
