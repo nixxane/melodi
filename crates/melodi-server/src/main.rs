@@ -158,9 +158,11 @@ impl ApiError {
     }
 }
 
+// Upstream failures answer 500, not 502: Cloudflare replaces 502 / 504
+// responses with its own error page, which would hide the message.
 impl<E: std::fmt::Display> From<E> for ApiError {
     fn from(e: E) -> Self {
-        Self(StatusCode::BAD_GATEWAY, e.to_string())
+        Self(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
     }
 }
 
@@ -245,7 +247,7 @@ async fn command(
                     format!("{base}/{kind}/{id}?e={exp}&t={sig}")
                 })
                 .await
-                .map_err(|e| ApiError(StatusCode::BAD_GATEWAY, e.to_string()))?;
+                .map_err(|e| ApiError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
             ok(p)
         }
         "prefetch_stream" => {

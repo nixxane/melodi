@@ -44,10 +44,10 @@ jobs:
       - run: pnpm build
         env:
           VITE_MELODI_API: ${{ vars.MELODI_API_URL }}
+      # Plain npx, not cloudflare/wrangler-action: that action installs
+      # wrangler with the project's pnpm, which refuses wrangler's build scripts.
       - name: Publish to Cloudflare Pages
         if: env.CLOUDFLARE_API_TOKEN != ''
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=melodi --branch=main
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4.165.0 pages deploy dist --project-name=melodi --branch=main
